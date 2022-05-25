@@ -3,9 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
-#include "VectorArc.h"
-
 #include "GameFramework/Actor.h"
 #include "TerrainHandler.generated.h"
 
@@ -19,11 +16,31 @@ class PROCEDUALTERRAINTOOL_API ATerrainHandler : public AActor
 {
 	GENERATED_BODY()
 
+public:
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
 	void LogTest();
 
 	UPROPERTY(EditAnywhere)
-	UTerrainSpriteData* SpriteData;
+	TSet<UTerrainSpriteData*> UseableSprites;
+
+	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
+	void RefreshUseableSpriteData();
+
+private:
+
+};
+
+/**
+ * A socket's connectivity state.
+ */
+UENUM()
+enum class EConnectionResult : int8
+{
+	No = 0,
+	CheckNext = 1,
+	CheckPrevious = 2,
+	CheckBoth = 3,
+	Yes = 4,
 };
 
 /**
@@ -44,11 +61,11 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 
 	//The angle this socket blocks around its first vertex.
 	UPROPERTY()
-	FVectorArc FirstAngle = FVectorArc();
+	float FirstAngle = 2 * PI;
 
 	//The angle this socket blocks around its second vertex.
 	UPROPERTY()
-	FVectorArc SecondAngle = FVectorArc();
+	float SecondAngle = 2 * PI;
 
 	/**
 	 * Constructs a socket given terrain geometry and an index.
@@ -59,11 +76,50 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	 * @param SecondVertex - The second vertex defining the edge of this socket.
 	 * @param NextVertex - The vertex after the SecondVertex.
 	 */
-	FTerrainSocket(int32 Index, FVector2D PreviousVertex, FVector2D FirstVertex, FVector2D SecondVertex, FVector2D NextVertex)
+	FTerrainSocket(int32 Index = -1, FVector2D PreviousVertex = FVector2D(), FVector2D FirstVertex = FVector2D(), FVector2D SecondVertex = FVector2D(), FVector2D NextVertex = FVector2D())
 	{
 		SocketIndex = Index;
 		Length = FVector2D::Distance(FirstVertex, SecondVertex);
-		FirstAngle = FVectorArc(SecondVertex - FirstVertex, PreviousVertex - FirstVertex);
-		SecondAngle = FVectorArc(NextVertex - SecondVertex, FirstVertex - SecondVertex);
+
+		FVector2D FP = (PreviousVertex - FirstVertex).GetSafeNormal();
+		FVector2D FS = (SecondVertex - FirstVertex).GetSafeNormal();
+		FVector2D SN = (NextVertex - SecondVertex).GetSafeNormal();
+		FVector2D SF = (FirstVertex - SecondVertex).GetSafeNormal();
+		
+		FirstAngle = FMath::Acos(FP | FS);
+		if ((FP ^ FS) < 0)
+		{
+			FirstAngle = 2 * PI - FirstAngle;
+		}
+
+		SecondAngle = FMath::Acos(SF | SN);
+		if ((SF ^ SN) < 0)
+		{
+			SecondAngle = 2 * PI - SecondAngle;
+		}
+	}
+
+	/**
+	 * Determines whether sockets can connect.
+	 * 
+	 * @param Other - The other socket to test.
+	 * @return Whether or not this and Other can connect.
+	 */
+	EConnectionResult CanConnectToSocket(FTerrainSocket Other) const
+	{
+		if (SocketIndex != Other.SocketIndex || Length != Other.Length || SecondAngle + Other.FirstAngle > 2 * PI || FirstAngle + Other.SecondAngle > 2 * PI)
+		{
+			return EConnectionResult::No;
+		}
+
+		bool bCheckNext = SecondAngle + Other.FirstAngle == 2 * PI;
+		bool bCheckPrevious = FirstAngle + Other.SecondAngle == 2 * PI;
+
+		if (bCheckNext || bCheckNext)
+		{
+			return (EConnectionResult)((int8)(bCheckNext)+(int8)(2 * bCheckPrevious));
+		}
+
+		return EConnectionResult::Yes;
 	}
 };
