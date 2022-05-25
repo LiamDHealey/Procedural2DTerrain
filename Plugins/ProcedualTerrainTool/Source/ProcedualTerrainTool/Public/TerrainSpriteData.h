@@ -20,5 +20,5 @@ public:
 	UPaperSprite* Sprite;
 
 	UPROPERTY(EditAnywhere)
-	FSpriteGeometryShape Shape;
+	TArray<FVector2D> Verticies;
 };
