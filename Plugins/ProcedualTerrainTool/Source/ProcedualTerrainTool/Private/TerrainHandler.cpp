@@ -6,7 +6,6 @@
 
 void ATerrainHandler::LogTest()
 {
-	UE_LOG(LogTemp, Warning, TEXT("%f"), test);
 	//UE_LOG(LogTemp, Warning, TEXT("\\/-------------------\\/"));
 	//for (FSpriteGeometryShape EachShape : SpriteData->Shape)
 	//{

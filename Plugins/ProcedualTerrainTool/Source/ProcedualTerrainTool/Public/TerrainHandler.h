@@ -26,8 +26,6 @@ public:
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
 	void RefreshUseableSpriteData();
 
-private:
-
 };
 
 /**
@@ -51,9 +49,9 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 {
 	GENERATED_BODY()
 
-	//The index of this socket. Will only connect to sockets with the same index.
+	//The index of this socket. Will only connect to sockets with the same index. Negative Indices will never connect.
 	UPROPERTY()
-	int32 SocketIndex = 0;
+	int SocketIndex = 0;
 
 	//The length of this socket. Will only connect to sockets with the same length.
 	UPROPERTY()
@@ -70,13 +68,13 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	/**
 	 * Constructs a socket given terrain geometry and an index.
 	 * 
-	 * @param Index - The index of this socket. Will only connect to sockets with the same index.
+	 * @param Index - The index of this socket. Will only connect to sockets with the same index. Negative Indices will never connect.
 	 * @param PreviousVertex - The vertex prior to the FirstVertex.
 	 * @param FirstVertex - The first vertex defining the edge of this socket.
 	 * @param SecondVertex - The second vertex defining the edge of this socket.
 	 * @param NextVertex - The vertex after the SecondVertex.
 	 */
-	FTerrainSocket(int32 Index = -1, FVector2D PreviousVertex = FVector2D(), FVector2D FirstVertex = FVector2D(), FVector2D SecondVertex = FVector2D(), FVector2D NextVertex = FVector2D())
+	FTerrainSocket(int Index = -1, FVector2D PreviousVertex = FVector2D(), FVector2D FirstVertex = FVector2D(), FVector2D SecondVertex = FVector2D(), FVector2D NextVertex = FVector2D())
 	{
 		SocketIndex = Index;
 		Length = FVector2D::Distance(FirstVertex, SecondVertex);
@@ -100,6 +98,26 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	}
 
 	/**
+	 * Increases the first angle.
+	 * 
+	 * @param Amount - The amount to increase the first angle by.
+	 */
+	void IncreaseFirstAngle(float Amount)
+	{
+		FirstAngle += Amount;
+	}
+
+	/**
+	 * Increases the second angle.
+	 *
+	 * @param Amount - The amount to increase the second angle by.
+	 */
+	void IncreaseSecondAngle(float Amount)
+	{
+		SecondAngle += Amount;
+	}
+
+	/**
 	 * Determines whether sockets can connect.
 	 * 
 	 * @param Other - The other socket to test.
@@ -107,7 +125,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	 */
 	EConnectionResult CanConnectToSocket(FTerrainSocket Other) const
 	{
-		if (SocketIndex != Other.SocketIndex || Length != Other.Length || SecondAngle + Other.FirstAngle > 2 * PI || FirstAngle + Other.SecondAngle > 2 * PI)
+		if (SocketIndex < 0 || SocketIndex != Other.SocketIndex || Length != Other.Length || SecondAngle + Other.FirstAngle > 2 * PI || FirstAngle + Other.SecondAngle > 2 * PI)
 		{
 			return EConnectionResult::No;
 		}
@@ -121,5 +139,156 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 		}
 
 		return EConnectionResult::Yes;
+	}
+};
+
+/**
+ * Stores a piece of terrain's shape and its sockets.
+ */
+USTRUCT()
+struct PROCEDUALTERRAINTOOL_API FTerrainShape
+{
+	GENERATED_BODY()
+
+	//Stores all of the sockets in this shape.
+	UPROPERTY()
+	TArray<FTerrainSocket> ShapeSockets;
+
+	//Constructs a terrain shape from the given terrain's geometry.
+	FTerrainShape(TArray<FVector2D> TerrainGeometery = TArray<FVector2D>())
+	{
+		for (int GeoIndex = 1; GeoIndex <= TerrainGeometery.Num(); GeoIndex++)
+		{
+			FTerrainSocket NewSocket = FTerrainSocket(0, TerrainGeometery[GeoIndex - 1], TerrainGeometery[GeoIndex % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 1) % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 2) % TerrainGeometery.Num()]);
+
+			//Invalidate concave shapes.
+			if (NewSocket.FirstAngle > 180 || NewSocket.SecondAngle > 180)
+			{
+				ShapeSockets.Empty();
+				return;
+			}
+
+			ShapeSockets.Add(NewSocket);
+		}
+	}
+
+	//Constructs a terrain shape from the given sockets.
+	FTerrainShape(TArray<FTerrainSocket> Sockets)
+	{
+		ShapeSockets = Sockets;
+	}
+
+	/**
+	 * Attempts to merge this shape with another.
+	 * 
+	 * @param MergedShape - The combined shape of this and another shape.
+	 * @param FaceIndex - The index of the face on this shape to start the merge at.
+	 * @param Other - The other shape to query.
+	 * @param FaceIndex - The index of the face on this the other shape to start the merge at.
+	 * @return Whether or not this shape can be merged with the other shape.
+	 */
+	bool MergeShape(FTerrainShape& MergedShape, int FaceIndex, FTerrainShape Other, int OtherFaceIndex) const
+	{
+		MergedShape = FTerrainShape(ShapeSockets);
+		int FirstMergeIndex = FaceIndex;
+		int LastMergeIndex = FaceIndex;
+		int OtherFirstMergeIndex = OtherFaceIndex;
+		int OtherLastMergeIndex = OtherFaceIndex;
+
+		bool bClockwise = false;
+		do
+		{
+			//Reset indices
+			int SearchIndex = FaceIndex + bClockwise;
+			int OtherSearchIndex = OtherFaceIndex - bClockwise;
+
+			//Search all of shapes sockets to detect if connection is possible
+			do
+			{
+				//Test socket connectivity
+				switch (ShapeSockets[SearchIndex].CanConnectToSocket(Other.ShapeSockets[OtherFaceIndex]))
+				{
+				case EConnectionResult::No:
+					MergedShape = FTerrainShape();
+					return false;
+
+				case EConnectionResult::CheckNext:
+					if (!bClockwise)
+					{
+						FirstMergeIndex = SearchIndex;
+						OtherLastMergeIndex = OtherSearchIndex;
+						goto nextLoop; //Current direction succeeded
+					}
+					break;
+
+				case EConnectionResult::CheckPrevious:
+					if (bClockwise)
+					{
+						LastMergeIndex = SearchIndex;
+						OtherFirstMergeIndex = OtherSearchIndex;
+						goto nextLoop; //Current direction succeeded
+					}
+					break;
+
+				case EConnectionResult::CheckBoth:
+					break;
+
+				default:
+					ensureMsgf(SearchIndex == FaceIndex, TEXT("Improper Shape Angle Detection"));
+					goto nextLoop;
+				}
+
+				//Iterate Indices
+				SearchIndex = Mod(SearchIndex + bClockwise ? 1 : -1, ShapeSockets.Num());
+				OtherSearchIndex = Mod(OtherSearchIndex + !bClockwise ? 1 : -1, Other.ShapeSockets.Num());
+
+			} while (SearchIndex != FaceIndex);
+			ensureMsgf(false, TEXT("Shape indices mismatch"));
+
+		nextLoop:
+			bClockwise = !bClockwise;
+
+		} while (!bClockwise);
+
+		
+		// \/ Merge Shapes \/ //
+		TArray<FTerrainSocket> OtherShapeSockets = Other.ShapeSockets;
+
+		//Adjust socket angles
+		MergedShape.ShapeSockets[Mod(LastMergeIndex + 1, MergedShape.ShapeSockets.Num())].IncreaseFirstAngle(OtherShapeSockets[OtherFirstMergeIndex].FirstAngle);
+		MergedShape.ShapeSockets[Mod(FirstMergeIndex - 1, MergedShape.ShapeSockets.Num())].IncreaseSecondAngle(OtherShapeSockets[OtherLastMergeIndex].SecondAngle);
+
+		OtherShapeSockets[Mod(OtherLastMergeIndex + 1, OtherShapeSockets.Num())].IncreaseFirstAngle(MergedShape.ShapeSockets[FirstMergeIndex].FirstAngle);
+		OtherShapeSockets[Mod(OtherFirstMergeIndex - 1, OtherShapeSockets.Num())].IncreaseSecondAngle(MergedShape.ShapeSockets[LastMergeIndex].SecondAngle);
+
+		//Prune Merged Sockets
+		MergedShape.ShapeSockets.RemoveAt(FirstMergeIndex, FMath::Min(LastMergeIndex + 1, ShapeSockets.Num()) - FirstMergeIndex);
+		if (LastMergeIndex < FirstMergeIndex)
+		{
+			MergedShape.ShapeSockets.RemoveAt(0, LastMergeIndex + 1);
+		}
+		OtherShapeSockets.RemoveAt(OtherFirstMergeIndex, FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - OtherFirstMergeIndex);
+		if (OtherLastMergeIndex < OtherFirstMergeIndex)
+		{
+			OtherShapeSockets.RemoveAt(0, OtherLastMergeIndex + 1);
+		}
+
+		//Combine Shapes
+		MergedShape.ShapeSockets.Insert(OtherShapeSockets, FirstMergeIndex);
+
+		// /\ Merge Shapes /\ //
+
+		return true;
+	}
+
+private:
+	int Mod(int A, int B) const
+	{
+		int Value = A % B;
+		if (Value < 0)
+		{
+			Value += B;
+		}
+		return Value;
 	}
 };
