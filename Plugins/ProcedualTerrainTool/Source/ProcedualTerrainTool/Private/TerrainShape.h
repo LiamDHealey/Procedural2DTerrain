@@ -60,16 +60,16 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 		FVector2D SF = (FirstVertex - SecondVertex).GetSafeNormal();
 		
 		FirstAngle = FMath::Acos(FP | FS);
-		if ((FP ^ FS) < 0)
-		{
-			FirstAngle = 2 * PI - FirstAngle;
-		}
+		//if ((FP ^ FS) < 0)
+		//{
+		//	FirstAngle = 2 * PI - FirstAngle;
+		//}
 
 		SecondAngle = FMath::Acos(SF | SN);
-		if ((SF ^ SN) < 0)
-		{
-			SecondAngle = 2 * PI - SecondAngle;
-		}
+		//if ((SF ^ SN) < 0)
+		//{
+		//	SecondAngle = 2 * PI - SecondAngle;
+		//}
 	}
 
 	/**
@@ -140,7 +140,6 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		{
 			return;
 		}
-		Vertices.Add(TerrainGeometery[TerrainGeometery.Num() - 1]);
 		for (int GeoIndex = 1; GeoIndex <= TerrainGeometery.Num(); GeoIndex++)
 		{
 			FTerrainSocket NewSocket = FTerrainSocket(0, TerrainGeometery[GeoIndex - 1], TerrainGeometery[GeoIndex % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 1) % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 2) % TerrainGeometery.Num()]);
@@ -170,153 +169,6 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	 * Attempts to merge this shape with another.
 	 * 
 	 * @param MergedShape - The combined shape of this and another shape.
-	 * @param FaceIndex - The index of the face on this shape to start the merge at.
-	 * @param Other - The other shape to query.
-	 * @param FaceIndex - The index of the face on this the other shape to start the merge at.
-	 * @return Whether or not this shape can be merged with the other shape.
-	 */
-	bool MergeShape(FTerrainShape& MergedShape, int FaceIndex, FTerrainShape Other, int OtherFaceIndex) const
-	{
-		//Account for empty shapes.
-		if (ShapeSockets.IsEmpty())
-		{
-			MergedShape = FTerrainShape(Other.Vertices, Other.ShapeSockets);
-			return true;
-		}
-		if (Other.ShapeSockets.IsEmpty())
-		{
-			MergedShape = FTerrainShape(Vertices, ShapeSockets);
-			return true;
-		}
-
-		// \/ Detect if merge is possible \/ //
-		MergedShape = FTerrainShape(Vertices, ShapeSockets);
-		int FirstMergeIndex = FaceIndex;
-		int LastMergeIndex = FaceIndex;
-		int OtherFirstMergeIndex = OtherFaceIndex;
-		int OtherLastMergeIndex = OtherFaceIndex;
-
-		bool bClockwise = false;
-		do
-		{
-			//Reset indices
-			int SearchIndex = FaceIndex + bClockwise;
-			int OtherSearchIndex = OtherFaceIndex - bClockwise;
-
-			//Search all of shapes sockets to detect if connection is possible
-			do
-			{
-				//Test socket connectivity
-				switch (ShapeSockets[SearchIndex].CanConnectToSocket(Other.ShapeSockets[OtherFaceIndex]))
-				{
-				case EConnectionResult::No:
-					MergedShape = FTerrainShape();
-					return false;
-
-				case EConnectionResult::CheckNext:
-					if (!bClockwise)
-					{
-						FirstMergeIndex = SearchIndex;
-						OtherLastMergeIndex = OtherSearchIndex;
-						goto nextLoop; //Current direction succeeded
-					}
-					break;
-
-				case EConnectionResult::CheckPrevious:
-					if (bClockwise)
-					{
-						LastMergeIndex = SearchIndex;
-						OtherFirstMergeIndex = OtherSearchIndex;
-						goto nextLoop; //Current direction succeeded
-					}
-					break;
-
-				case EConnectionResult::CheckBoth:
-					break;
-
-				default:
-					ensureMsgf(SearchIndex == FaceIndex, TEXT("Improper Shape Angle Detection"));
-					goto nextLoop;
-				}
-
-				//Iterate Indices
-				SearchIndex = Mod(SearchIndex + bClockwise ? 1 : -1, ShapeSockets.Num());
-				OtherSearchIndex = Mod(OtherSearchIndex + !bClockwise ? 1 : -1, Other.ShapeSockets.Num());
-
-			} while (SearchIndex != FaceIndex);
-			ensureMsgf(false, TEXT("Shape indices mismatch"));
-
-		nextLoop:
-			bClockwise = !bClockwise;
-
-		} while (!bClockwise);
-		// /\ Detect if merge is possible /\ //
-		
-		// \/ Merge Shapes \/ //
-		TArray<FTerrainSocket> OtherShapeSockets = Other.ShapeSockets;
-		TArray<FVector2D> OtherMergedVerticies = Other.Vertices;
-
-		//Adjust socket angles
-		MergedShape.ShapeSockets[Mod(LastMergeIndex + 1, MergedShape.ShapeSockets.Num())].IncreaseFirstAngle(OtherShapeSockets[OtherFirstMergeIndex].FirstAngle);
-		MergedShape.ShapeSockets[Mod(FirstMergeIndex - 1, MergedShape.ShapeSockets.Num())].IncreaseSecondAngle(OtherShapeSockets[OtherLastMergeIndex].SecondAngle);
-
-		OtherShapeSockets[Mod(OtherLastMergeIndex + 1, OtherShapeSockets.Num())].IncreaseFirstAngle(MergedShape.ShapeSockets[FirstMergeIndex].FirstAngle);
-		OtherShapeSockets[Mod(OtherFirstMergeIndex - 1, OtherShapeSockets.Num())].IncreaseSecondAngle(MergedShape.ShapeSockets[LastMergeIndex].SecondAngle);
-
-		//Prune Merged Sockets & Vertices
-		MergedShape.ShapeSockets.RemoveAt(FirstMergeIndex, FMath::Min(LastMergeIndex + 1, ShapeSockets.Num()) - FirstMergeIndex);
-		MergedShape.Vertices.RemoveAt(FirstMergeIndex, FMath::Min(LastMergeIndex + 1, ShapeSockets.Num()) - FirstMergeIndex);
-		if (LastMergeIndex < FirstMergeIndex)
-		{
-			MergedShape.ShapeSockets.RemoveAt(0, LastMergeIndex + 1);
-			MergedShape.Vertices.RemoveAt(0, LastMergeIndex + 1);
-		}
-		OtherShapeSockets.RemoveAt(OtherFirstMergeIndex, FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - OtherFirstMergeIndex);
-		OtherMergedVerticies.RemoveAt(OtherFirstMergeIndex, FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - OtherFirstMergeIndex);
-		if (OtherLastMergeIndex < OtherFirstMergeIndex)
-		{
-			OtherShapeSockets.RemoveAt(0, OtherLastMergeIndex + 1);
-			OtherMergedVerticies.RemoveAt(0, OtherLastMergeIndex + 1);
-		}
-
-		//Combine Shapes
-
-		MergedShape.ShapeSockets.Insert(OtherShapeSockets, FirstMergeIndex);
-
-		FQuat2D Rotation = FQuat2D(Other.Vertices[Mod(OtherFirstMergeIndex + 1, Other.Vertices.Num())] - Other.Vertices[OtherFirstMergeIndex]).Concatenate(FQuat2D(Vertices[Mod(FirstMergeIndex + 1, Vertices.Num())] - Vertices[FirstMergeIndex]).Inverse());
-		FTransform2D OtherTransform = FTransform2D(Rotation, Vertices[FirstMergeIndex]);
-
-		int Offset = 0;
-		for (FVector2D EachOtherMergedVertex : OtherMergedVerticies)
-		{
-			Offset++;
-			MergedShape.Vertices.Insert(OtherTransform.TransformPoint(EachOtherMergedVertex), Mod(FirstMergeIndex + Offset, OtherMergedVerticies.Num()));
-		}
-
-		// /\ Merge Shapes /\ //
-
-		return true;
-	}
-	
-	/**
-	 * Attempts to merge this shape with another.
-	 *
-	 * @param MergedShape - The combined shape of this and another shape.
-	 * @param FaceIndex - The index of the face on this shape to start the merge at.
-	 * @param Other - The other shape to query.
-	 * @param FaceIndex - The index of the face on this the other shape to start the merge at.
-	 * @return Whether or not this shape can be merged with the other shape.
-	 */
-	bool MergeShape(FTerrainShape& MergedShape, int FaceIndex, FTerrainShape Other, int OtherFaceIndex) const
-	{
-		FTransform2D MergedTransform;
-		return MergeShape(MergedShape, MergedTransform, FaceIndex, Other, OtherFaceIndex);
-	}
-
-	/**
-	 * Attempts to merge this shape with another.
-	 * 
-	 * @param MergedShape - The combined shape of this and another shape.
 	 * @param MergedTransform - The transform applied to Other if the merge was successful.
 	 * @param FaceIndex - The index of the face on this shape to start the merge at.
 	 * @param Other - The other shape to query.
@@ -326,15 +178,17 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	bool MergeShape(FTerrainShape& MergedShape, FTransform2D& MergedTransform, int FaceIndex, FTerrainShape Other, int OtherFaceIndex) const
 	{
 		//Account for empty shapes.
-		if (ShapeSockets.IsEmpty())
+		if (ShapeSockets.IsEmpty() && !Other.ShapeSockets.IsEmpty())
 		{
 			MergedShape = FTerrainShape(Other.Vertices, Other.ShapeSockets);
+			MergedTransform = FTransform2D();
 			return true;
 		}
-		if (Other.ShapeSockets.IsEmpty())
+
+		//Fail Invalid Merges
+		if (Other.ShapeSockets.IsEmpty() || !ShapeSockets.IsValidIndex(FaceIndex) || !Other.ShapeSockets.IsValidIndex(OtherFaceIndex))
 		{
-			MergedShape = FTerrainShape(Vertices, ShapeSockets);
-			return true;
+			return false;
 		}
 
 		// \/ Detect if merge is possible \/ //
@@ -343,6 +197,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		int LastMergeIndex = FaceIndex;
 		int OtherFirstMergeIndex = OtherFaceIndex;
 		int OtherLastMergeIndex = OtherFaceIndex;
+
 
 		bool bClockwise = false;
 		do
@@ -412,34 +267,34 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		OtherShapeSockets[Mod(OtherFirstMergeIndex - 1, OtherShapeSockets.Num())].IncreaseSecondAngle(MergedShape.ShapeSockets[LastMergeIndex].SecondAngle);
 
 		//Prune Merged Sockets & Vertices
-		MergedShape.ShapeSockets.RemoveAt(FirstMergeIndex, FMath::Min(LastMergeIndex + 1, ShapeSockets.Num()) - FirstMergeIndex);
-		MergedShape.Vertices.RemoveAt(FirstMergeIndex, FMath::Min(LastMergeIndex + 1, ShapeSockets.Num()) - FirstMergeIndex);
+		MergedShape.ShapeSockets.RemoveAt(FirstMergeIndex, FMath::Min(LastMergeIndex + 1, MergedShape.ShapeSockets.Num()) - FirstMergeIndex);
+		MergedShape.Vertices.RemoveAt(FirstMergeIndex, FMath::Min(LastMergeIndex + 1, MergedShape.Vertices.Num()) - FirstMergeIndex);
 		if (LastMergeIndex < FirstMergeIndex)
 		{
 			MergedShape.ShapeSockets.RemoveAt(0, LastMergeIndex + 1);
 			MergedShape.Vertices.RemoveAt(0, LastMergeIndex + 1);
 		}
-		OtherShapeSockets.RemoveAt(OtherFirstMergeIndex, FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - OtherFirstMergeIndex);
-		OtherMergedVerticies.RemoveAt(OtherFirstMergeIndex, FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - OtherFirstMergeIndex);
+		OtherShapeSockets.RemoveAt(OtherFirstMergeIndex, FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - (OtherFirstMergeIndex));
+		//OtherMergedVerticies.RemoveAt(OtherFirstMergeIndex, FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - (OtherFirstMergeIndex));
 		if (OtherLastMergeIndex < OtherFirstMergeIndex)
 		{
-			OtherShapeSockets.RemoveAt(0, OtherLastMergeIndex + 1);
-			OtherMergedVerticies.RemoveAt(0, OtherLastMergeIndex + 1);
+			OtherShapeSockets.RemoveAt(0, OtherLastMergeIndex + 2);
+			//OtherMergedVerticies.RemoveAt(0, OtherLastMergeIndex + 2);
 		}
 
 		//Combine Shapes
-
 		MergedShape.ShapeSockets.Insert(OtherShapeSockets, FirstMergeIndex);
+		FQuat2D Target = FQuat2D((Vertices[Mod(FirstMergeIndex + 1, Vertices.Num())] - Vertices[FirstMergeIndex]).GetSafeNormal());
+		FQuat2D Initial = FQuat2D((Other.Vertices[Mod(OtherFirstMergeIndex + 1, Other.Vertices.Num())] - Other.Vertices[OtherFirstMergeIndex]).GetSafeNormal());
+		FQuat2D Rotation = /*Initial.Inverse().Concatenate(Target)*/FQuat2D();
+		MergedTransform = FTransform2D(Rotation, FVector2D(256, 0)/*Vertices[FirstMergeIndex] - Other.Vertices[Mod(OtherLastMergeIndex + 1, Other.Vertices.Num())]*/);
 
-		FQuat2D Rotation = FQuat2D(Other.Vertices[Mod(OtherFirstMergeIndex + 1, Other.Vertices.Num())] - Other.Vertices[OtherFirstMergeIndex]).Concatenate(FQuat2D(Vertices[Mod(FirstMergeIndex + 1, Vertices.Num())] - Vertices[FirstMergeIndex]).Inverse());
-		MergedTransform = FTransform2D(Rotation, -Other.Vertices[OtherFirstMergeIndex]).Concatenate(FTransform2D(Vertices[FirstMergeIndex]));
-
-		int Offset = 0;
-		for (FVector2D EachOtherMergedVertex : OtherMergedVerticies)
+		OtherFirstMergeIndex = Mod(OtherFirstMergeIndex - 1, Other.Num());
+		do
 		{
-			Offset++;
-			MergedShape.Vertices.Insert(MergedTransform.TransformPoint(EachOtherMergedVertex), Mod(FirstMergeIndex + Offset, OtherMergedVerticies.Num()));
-		}
+			MergedShape.Vertices.Insert(MergedTransform.TransformPoint(Other.Vertices[OtherFirstMergeIndex]), FirstMergeIndex);
+			OtherFirstMergeIndex = Mod(OtherFirstMergeIndex - 1, Other.Num());
+		} while (OtherLastMergeIndex != OtherFirstMergeIndex);
 
 		// /\ Merge Shapes /\ //
 

@@ -20,11 +20,13 @@ class PROCEDUALTERRAINTOOL_API ATerrainHandler : public AActor
 	GENERATED_BODY()
 
 public:
+	ATerrainHandler();
+
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
 	void LogTest();
 
 	UPROPERTY(EditAnywhere)
-	TSet<UTerrainSpriteData*> UseableSprites;
+	TArray<UTerrainSpriteData*> UseableSprites;
 
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
 	void RefreshUseableSpriteData();
@@ -35,6 +37,7 @@ public:
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
 	void CollapseSuperPosition();
 	void CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex);
+	void CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex, FTerrainShape MergeResult, FTransform2D MergeTransform);
 
 	UPROPERTY(VisibleAnywhere)
 	FTerrainShape CurrentShape = FTerrainShape();
