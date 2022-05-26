@@ -86,7 +86,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 
 void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex, FTerrainShape MergeResult, FTransform2D MergeTransform)
 {
-	FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), MergeTransform.GetMatrix().GetRotationAngle()), FVector(MergeTransform.GetTranslation().X, 0, MergeTransform.GetTranslation().Y));
+	FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), MergeTransform.GetMatrix().GetRotationAngle() - (PI / 2)), FVector(MergeTransform.GetTranslation().X, 0, MergeTransform.GetTranslation().Y));
 	UPaperSpriteComponent* NewSprite = Cast<UPaperSpriteComponent>(AddComponentByClass(UPaperSpriteComponent::StaticClass(), false, Transform, false));
 	NewSprite->SetSprite(UseableSprites[ShapeIndex]->Sprite);
 

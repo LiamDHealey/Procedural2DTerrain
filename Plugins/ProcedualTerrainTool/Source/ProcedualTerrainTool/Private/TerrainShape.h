@@ -286,9 +286,8 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		MergedShape.ShapeSockets.Insert(OtherShapeSockets, FirstMergeIndex);
 		FQuat2D Target = FQuat2D((Vertices[Mod(FirstMergeIndex + 1, Vertices.Num())] - Vertices[FirstMergeIndex]).GetSafeNormal());
 		FQuat2D Initial = FQuat2D((Other.Vertices[Mod(OtherFirstMergeIndex + 1, Other.Vertices.Num())] - Other.Vertices[OtherFirstMergeIndex]).GetSafeNormal());
-		FQuat2D Rotation = /*Initial.Inverse().Concatenate(Target)*/FQuat2D();
+		FQuat2D Rotation = Initial.Inverse().Concatenate(Target);
 		MergedTransform = FTransform2D(Rotation, FVector2D(256, 0)/*Vertices[FirstMergeIndex] - Other.Vertices[Mod(OtherLastMergeIndex + 1, Other.Vertices.Num())]*/);
-
 		OtherFirstMergeIndex = Mod(OtherFirstMergeIndex - 1, Other.Num());
 		do
 		{
