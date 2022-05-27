@@ -92,6 +92,11 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 	float C;
 	float D;
 	MergeTransform.GetMatrix().GetMatrix(A, B, C, D);
+	if (FMath::IsNearlyZero(A))
+	{
+		A = SMALL_NUMBER;
+	}
+
 	float Angle = FMath::Atan(B / A);
 	if (A < 0)
 	{

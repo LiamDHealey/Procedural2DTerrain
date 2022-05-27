@@ -42,10 +42,10 @@ public:
 	void CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex);
 	void CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex, FTerrainShape MergeResult, FTransform2D MergeTransform);
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, AdvancedDisplay)
 	FTerrainShape CurrentShape = FTerrainShape();
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, AdvancedDisplay)
 	TArray<FTerrainShape> BaseSuperPositions = TArray<FTerrainShape>();
 
 private:
