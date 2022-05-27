@@ -175,7 +175,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	 * @param FaceIndex - The index of the face on this the other shape to start the merge at.
 	 * @return Whether or not this shape can be merged with the other shape.
 	 */
-	bool MergeShape(FTerrainShape& MergedShape, FTransform2D& MergedTransform, int FaceIndex, FTerrainShape Other, int OtherFaceIndex) const
+	bool MergeShape(FTerrainShape& MergedShape, FTransform2D& MergedTransform, int FaceIndex, FTerrainShape Other, int OtherFaceIndex, bool bDebug = false) const
 	{
 		//Account for empty shapes.
 		if (ShapeSockets.IsEmpty() && !Other.ShapeSockets.IsEmpty())
@@ -284,11 +284,13 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 
 		//Combine Shapes
 		MergedShape.ShapeSockets.Insert(OtherShapeSockets, FirstMergeIndex);
+
 		FQuat2D Target = FQuat2D((Vertices[Mod(FirstMergeIndex + 1, Vertices.Num())] - Vertices[FirstMergeIndex]).GetSafeNormal());
-		FQuat2D Initial = FQuat2D((Other.Vertices[Mod(OtherFirstMergeIndex + 1, Other.Vertices.Num())] - Other.Vertices[OtherFirstMergeIndex]).GetSafeNormal());
+		FQuat2D Initial = FQuat2D((-Other.Vertices[Mod(OtherFirstMergeIndex + 1, Other.Vertices.Num())] + Other.Vertices[OtherFirstMergeIndex]).GetSafeNormal());
 		FQuat2D Rotation = Initial.Inverse().Concatenate(Target);
-		MergedTransform = FTransform2D(Rotation, FVector2D(256, 0)/*Vertices[FirstMergeIndex] - Other.Vertices[Mod(OtherLastMergeIndex + 1, Other.Vertices.Num())]*/);
+		MergedTransform = FTransform2D(Rotation, Vertices[FirstMergeIndex] - Other.Vertices[Mod(OtherLastMergeIndex + 1, Other.Vertices.Num())]);
 		OtherFirstMergeIndex = Mod(OtherFirstMergeIndex - 1, Other.Num());
+
 		do
 		{
 			MergedShape.Vertices.Insert(MergedTransform.TransformPoint(Other.Vertices[OtherFirstMergeIndex]), FirstMergeIndex);

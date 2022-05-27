@@ -28,6 +28,9 @@ public:
 	UPROPERTY(EditAnywhere)
 	TArray<UTerrainSpriteData*> UseableSprites;
 
+	UPROPERTY(EditAnywhere)
+	FIntVector CollapseCoords = FIntVector();
+
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
 	void RefreshUseableSpriteData();
 

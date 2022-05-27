@@ -68,7 +68,7 @@ void ATerrainHandler::CollapseSuperPosition()
 	//	int FaceIndex = FMath::RandHelper(SuperPositions[SocketIndex][ShapeIndex].Num() - 1);
 	//	CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex);
 	//}
-	CollapseSuperPosition(0, 0, 2);
+	CollapseSuperPosition(CollapseCoords.X, CollapseCoords.Y, CollapseCoords.Z);
 }
 
 void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex)
@@ -77,7 +77,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 	{
 		FTerrainShape NewShape;
 		FTransform2D MergeTransform;
-		if (ensureMsgf(CurrentShape.MergeShape(NewShape, MergeTransform, SocketIndex, BaseSuperPositions[ShapeIndex], FaceIndex), TEXT("Super Position Array False")))
+		if (ensureMsgf(CurrentShape.MergeShape(NewShape, MergeTransform, SocketIndex, BaseSuperPositions[ShapeIndex], FaceIndex, true), TEXT("Super Position Array False")))
 		{
 			CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex, NewShape, MergeTransform);
 		}
@@ -86,10 +86,27 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 
 void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex, FTerrainShape MergeResult, FTransform2D MergeTransform)
 {
-	FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), MergeTransform.GetMatrix().GetRotationAngle() - (PI / 2)), FVector(MergeTransform.GetTranslation().X, 0, MergeTransform.GetTranslation().Y));
-	UPaperSpriteComponent* NewSprite = Cast<UPaperSpriteComponent>(AddComponentByClass(UPaperSpriteComponent::StaticClass(), false, Transform, false));
-	NewSprite->SetSprite(UseableSprites[ShapeIndex]->Sprite);
+	//Calculate Sprite Rotation
+	float A;
+	float B;
+	float C;
+	float D;
+	MergeTransform.GetMatrix().GetMatrix(A, B, C, D);
+	float Angle = FMath::Atan(B / A);
+	if (A < 0)
+	{
+		Angle = PI - Angle;
+	}
 
+	//Spawn Sprite
+	FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), Angle), FVector(MergeTransform.GetTranslation().X, 0, MergeTransform.GetTranslation().Y));
+	UPaperSpriteComponent* NewSprite = NewObject<UPaperSpriteComponent>(this);
+	NewSprite->SetSprite(UseableSprites[ShapeIndex]->Sprite);
+	NewSprite->RegisterComponent();
+	NewSprite->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
+	NewSprite->SetRelativeTransform(Transform);
+
+	//Refresh Superpositions
 	CurrentShape = MergeResult;
 	RefreshSuperPositions();
 }
