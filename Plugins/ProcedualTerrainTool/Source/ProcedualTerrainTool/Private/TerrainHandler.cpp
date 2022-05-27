@@ -78,9 +78,9 @@ void ATerrainHandler::CollapseSuperPosition()
 {
 	//if (!SuperPositions.IsEmpty())
 	//{
-	//	int SocketIndex = FMath::RandHelper(SuperPositions.Num() - 1);
-	//	int ShapeIndex = FMath::RandHelper(SuperPositions[SocketIndex].Num() - 1);
-	//	int FaceIndex = FMath::RandHelper(SuperPositions[SocketIndex][ShapeIndex].Num() - 1);
+	//	int SocketIndex = FMath::RandHelper(SuperPositions.Num());
+	//	int ShapeIndex = FMath::RandHelper(SuperPositions[SocketIndex].Num());
+	//	int FaceIndex = FMath::RandHelper(SuperPositions[SocketIndex][ShapeIndex].Num());
 	//	CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex);
 	//}
 	CollapseSuperPosition(CollapseCoords.X, CollapseCoords.Y, CollapseCoords.Z);
