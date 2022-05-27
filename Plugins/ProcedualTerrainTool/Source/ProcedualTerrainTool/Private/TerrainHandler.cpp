@@ -54,12 +54,12 @@ void ATerrainHandler::ResetTerrain()
 
 	SuperPositions.Empty();
 	TArray<TArray<bool>> FirstSocetSuperPosition = TArray<TArray<bool>>();
-	for (FTerrainShape EachBaseSuperPosition : BaseSuperPositions)
+	for (int ShapeIndex = 0; ShapeIndex < BaseSuperPositions.Num(); ShapeIndex++)
 	{
 		FirstSocetSuperPosition.Add(TArray<bool>());
-		for (int i = 0; i < EachBaseSuperPosition.Num(); i++)
+		for (int FaceIndex = 0; FaceIndex < BaseSuperPositions[ShapeIndex].Num(); FaceIndex++)
 		{
-			FirstSocetSuperPosition[0].Add(true);
+			FirstSocetSuperPosition[ShapeIndex].Add(true);
 		}
 	}
 	SuperPositions.Add(FirstSocetSuperPosition);
@@ -115,7 +115,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 	float Angle = FMath::Atan(B / A);
 	if (A < 0)
 	{
-		Angle = PI - Angle;
+		Angle = PI + Angle;
 	}
 
 	//Spawn Sprite

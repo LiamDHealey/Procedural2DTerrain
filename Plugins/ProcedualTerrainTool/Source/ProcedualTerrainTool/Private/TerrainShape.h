@@ -275,11 +275,9 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 			MergedShape.Vertices.RemoveAt(0, LastMergeIndex + 1);
 		}
 		OtherShapeSockets.RemoveAt(OtherFirstMergeIndex, FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - (OtherFirstMergeIndex));
-		//OtherMergedVerticies.RemoveAt(OtherFirstMergeIndex, FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - (OtherFirstMergeIndex));
 		if (OtherLastMergeIndex < OtherFirstMergeIndex)
 		{
 			OtherShapeSockets.RemoveAt(0, OtherLastMergeIndex + 2);
-			//OtherMergedVerticies.RemoveAt(0, OtherLastMergeIndex + 2);
 		}
 
 		//Combine Shapes
