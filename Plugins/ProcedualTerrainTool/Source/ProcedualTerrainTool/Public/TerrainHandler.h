@@ -46,9 +46,11 @@ public:
 	FTerrainShape CurrentShape = FTerrainShape();
 
 	UPROPERTY(VisibleAnywhere, AdvancedDisplay)
-	TArray<FTerrainShape> BaseSuperPositions = TArray<FTerrainShape>();
+	TArray<FTerrainShape> SpriteShapes = TArray<FTerrainShape>();
 
 private:
+	TArray<TArray<bool>> BaseSuperPositions = TArray<TArray<bool>>();
+
 	TArray<TArray<TArray<bool>>> SuperPositions = TArray<TArray<TArray<bool>>>();
 
 	UFUNCTION()

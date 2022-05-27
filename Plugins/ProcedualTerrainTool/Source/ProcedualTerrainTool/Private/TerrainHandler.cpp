@@ -38,11 +38,15 @@ void ATerrainHandler::LogTest()
 
 void ATerrainHandler::RefreshUseableSpriteData()
 {
-	BaseSuperPositions.Empty();
+	SpriteShapes.Empty();
 
 	for (UTerrainSpriteData* EachUseableSprite : UseableSprites)
 	{
-		BaseSuperPositions.Add(FTerrainShape(EachUseableSprite->Verticies));
+		SpriteShapes.Emplace(FTerrainShape(EachUseableSprite->Verticies));
+
+		TArray<bool> Faces = TArray<bool>();
+		Faces.Init(true, EachUseableSprite->Verticies.Num());
+		BaseSuperPositions.Emplace(Faces);
 	}
 
 	ResetTerrain();
@@ -52,17 +56,8 @@ void ATerrainHandler::ResetTerrain()
 {
 	CurrentShape = FTerrainShape();
 
-	SuperPositions.Empty();
-	TArray<TArray<bool>> FirstSocetSuperPosition = TArray<TArray<bool>>();
-	for (int ShapeIndex = 0; ShapeIndex < BaseSuperPositions.Num(); ShapeIndex++)
-	{
-		FirstSocetSuperPosition.Add(TArray<bool>());
-		for (int FaceIndex = 0; FaceIndex < BaseSuperPositions[ShapeIndex].Num(); FaceIndex++)
-		{
-			FirstSocetSuperPosition[ShapeIndex].Add(true);
-		}
-	}
-	SuperPositions.Add(FirstSocetSuperPosition);
+	SuperPositions.SetNum(1);
+	SuperPositions[0] = BaseSuperPositions;	
 
 	TSet<UActorComponent*> Components = GetComponents();
 	for (UActorComponent* EachComponent : Components)
@@ -92,8 +87,11 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 	{
 		FTerrainShape NewShape;
 		FTransform2D MergeTransform;
-		if (ensureMsgf(CurrentShape.MergeShape(NewShape, MergeTransform, SocketIndex, BaseSuperPositions[ShapeIndex], FaceIndex, true), TEXT("Super Position Array False")))
+
+		UE_LOG(LogTemp, Warning, TEXT("\\/----------------------------------------\\/"));
+		if (ensureMsgf(CurrentShape.MergeShape(NewShape, MergeTransform, SocketIndex, SpriteShapes[ShapeIndex], FaceIndex, true), TEXT("Super Position Array False")))
 		{
+			UE_LOG(LogTemp, Warning, TEXT("/\\----------------------------------------/\\"));
 			CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex, NewShape, MergeTransform);
 		}
 	}
@@ -133,22 +131,24 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 
 void ATerrainHandler::RefreshSuperPositions()
 {
-	SuperPositions.Empty();
+	SuperPositions.Reserve(CurrentShape.Num());
 	for (int SocketIndex = 0; SocketIndex < CurrentShape.Num(); SocketIndex++)
 	{
-		SuperPositions.Add(TArray<TArray<bool>>());
-		for (int ShapeIndex = 0; ShapeIndex < BaseSuperPositions.Num(); ShapeIndex++)
+		if (SuperPositions.IsValidIndex(SocketIndex))
 		{
-			SuperPositions[SocketIndex].Add(TArray<bool>());
+			SuperPositions.Emplace(BaseSuperPositions);
+		}
 
+		for (int ShapeIndex = 0; ShapeIndex < SpriteShapes.Num(); ShapeIndex++)
+		{
 			int SuccessCount = 0;
 			int SucceededFaceIndex = 0;
 			FTransform2D SucceededTransform;
 			FTerrainShape NewShape;
 
-			for (int FaceIndex = 0; FaceIndex < BaseSuperPositions[ShapeIndex].Num(); FaceIndex++)
+			for (int FaceIndex = 0; FaceIndex < SpriteShapes[ShapeIndex].Num(); FaceIndex++)
 			{
-				SuperPositions[SocketIndex][ShapeIndex].Add(CurrentShape.MergeShape(NewShape, SucceededTransform, SocketIndex, BaseSuperPositions[ShapeIndex], FaceIndex));
+				SuperPositions[SocketIndex][ShapeIndex][FaceIndex] = CurrentShape.MergeShape(NewShape, SucceededTransform, SocketIndex, SpriteShapes[ShapeIndex], FaceIndex);
 				SuccessCount++;
 				SucceededFaceIndex = FaceIndex;
 			}

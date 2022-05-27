@@ -105,15 +105,26 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 			return EConnectionResult::No;
 		}
 
-		bool bCheckNext = SecondAngle + Other.FirstAngle == 2 * PI;
-		bool bCheckPrevious = FirstAngle + Other.SecondAngle == 2 * PI;
+		bool bCheckNext = FMath::IsNearlyEqual(SecondAngle + Other.FirstAngle, TWO_PI, .1);
+		bool bCheckPrevious = FMath::IsNearlyEqual(FirstAngle + Other.SecondAngle, TWO_PI, .1);
 
-		if (bCheckNext || bCheckNext)
+		switch ((bCheckNext)+(2 * bCheckPrevious))
 		{
-			return (EConnectionResult)((int8)(bCheckNext)+(int8)(2 * bCheckPrevious));
-		}
+		case 0:
+			return EConnectionResult::Yes;
 
-		return EConnectionResult::Yes;
+		case 1:
+			return EConnectionResult::CheckNext;
+
+		case 2:
+			return EConnectionResult::CheckPrevious;
+
+		case 3:
+			return EConnectionResult::CheckBoth;
+
+		default:
+			return EConnectionResult::No;
+		}
 	}
 };
 
@@ -143,16 +154,16 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		for (int GeoIndex = 1; GeoIndex <= TerrainGeometery.Num(); GeoIndex++)
 		{
 			FTerrainSocket NewSocket = FTerrainSocket(0, TerrainGeometery[GeoIndex - 1], TerrainGeometery[GeoIndex % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 1) % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 2) % TerrainGeometery.Num()]);
-			ShapeSockets.Add(NewSocket);
-			Vertices.Add(TerrainGeometery[GeoIndex % TerrainGeometery.Num()]);
+			ShapeSockets.Emplace(NewSocket);
+			Vertices.Emplace(TerrainGeometery[GeoIndex % TerrainGeometery.Num()]);
 		}
 	}
 
 	//Constructs a terrain shape from the given sockets.
 	FTerrainShape(TArray<FVector2D> TerrainGeometery, TArray<FTerrainSocket> Sockets)
 	{
-		Vertices = TerrainGeometery;
-		ShapeSockets = Sockets;
+		Vertices = TArray<FVector2D>(TerrainGeometery);
+		ShapeSockets = TArray<FTerrainSocket>(Sockets);
 	}
 
 	/**
@@ -160,7 +171,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	 * 
 	 * @return The number of sockets this shape has.
 	 */
-	int Num()
+	int Num() const
 	{
 		return ShapeSockets.Num();
 	}
@@ -191,8 +202,9 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 			return false;
 		}
 
+		UE_LOG(LogTemp, Warning, TEXT("\\/---- Merge ----\\/"));
 		// \/ Detect if merge is possible \/ //
-		MergedShape = FTerrainShape(*this);
+		MergedShape = FTerrainShape(Vertices, ShapeSockets);
 		int FirstMergeIndex = FaceIndex;
 		int LastMergeIndex = FaceIndex;
 		int OtherFirstMergeIndex = OtherFaceIndex;
@@ -210,14 +222,18 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 			do
 			{
 				//Test socket connectivity
-				switch (ShapeSockets[SearchIndex].CanConnectToSocket(Other.ShapeSockets[OtherFaceIndex]))
+				UE_LOG(LogTemp, Warning, TEXT("Compare %i with %i"), SearchIndex, OtherSearchIndex);
+				switch (ShapeSockets[SearchIndex].CanConnectToSocket(Other.ShapeSockets[OtherSearchIndex]))
 				{
 				case EConnectionResult::No:
+					UE_LOG(LogTemp, Warning, TEXT("No"));
 					MergedShape = FTerrainShape();
+					MergedTransform = FTransform2D();
 					return false;
 
 				case EConnectionResult::CheckNext:
-					if (!bClockwise)
+					UE_LOG(LogTemp, Warning, TEXT("CheckNext"));
+					if (bClockwise)
 					{
 						FirstMergeIndex = SearchIndex;
 						OtherLastMergeIndex = OtherSearchIndex;
@@ -226,7 +242,8 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 					break;
 
 				case EConnectionResult::CheckPrevious:
-					if (bClockwise)
+					UE_LOG(LogTemp, Warning, TEXT("CheckPrevious"));
+					if (!bClockwise)
 					{
 						LastMergeIndex = SearchIndex;
 						OtherFirstMergeIndex = OtherSearchIndex;
@@ -235,24 +252,40 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 					break;
 
 				case EConnectionResult::CheckBoth:
+					UE_LOG(LogTemp, Warning, TEXT("CheckBoth"));
 					break;
 
-				default:
-					ensureMsgf(SearchIndex == FaceIndex, TEXT("Improper Shape Angle Detection"));
+				case EConnectionResult::Yes:
+					UE_LOG(LogTemp, Warning, TEXT("Yes"));
+					if (ensureMsgf(SearchIndex == FaceIndex, TEXT("Improper Shape Angle Detection")))
+					{
+						goto skipLoop;
+					}
+
 					goto nextLoop;
+
+				default:
+					UE_LOG(LogTemp, Error, TEXT("Invalid Socket Test Result"));
+					break;
 				}
 
 				//Iterate Indices
-				SearchIndex = Mod(SearchIndex + bClockwise ? 1 : -1, ShapeSockets.Num());
-				OtherSearchIndex = Mod(OtherSearchIndex + !bClockwise ? 1 : -1, Other.ShapeSockets.Num());
+				SearchIndex = Mod(SearchIndex + (!bClockwise ? 1 : -1), ShapeSockets.Num());
+				OtherSearchIndex = Mod(OtherSearchIndex + (!bClockwise ? 1 : -1), Other.ShapeSockets.Num());
 
 			} while (SearchIndex != FaceIndex);
 			ensureMsgf(false, TEXT("Shape indices mismatch"));
 
 		nextLoop:
+			if (bClockwise)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("--------"));
+			}
 			bClockwise = !bClockwise;
 
 		} while (!bClockwise);
+		skipLoop:
+
 		// /\ Detect if merge is possible /\ //
 		
 		// \/ Merge Shapes \/ //
@@ -267,18 +300,23 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		OtherShapeSockets[Mod(OtherFirstMergeIndex - 1, OtherShapeSockets.Num())].IncreaseSecondAngle(MergedShape.ShapeSockets[LastMergeIndex].SecondAngle);
 
 		//Prune Merged Sockets & Vertices
-		MergedShape.ShapeSockets.RemoveAt(FirstMergeIndex, FMath::Min(LastMergeIndex + 1, MergedShape.ShapeSockets.Num()) - FirstMergeIndex);
-		MergedShape.Vertices.RemoveAt(FirstMergeIndex, FMath::Min(LastMergeIndex + 1, MergedShape.Vertices.Num()) - FirstMergeIndex);
-		if (LastMergeIndex < FirstMergeIndex)
+		for (int Test = LastMergeIndex + 1; Test != FirstMergeIndex; Test = Mod((Test - 1), Num()))
 		{
-			MergedShape.ShapeSockets.RemoveAt(0, LastMergeIndex + 1);
-			MergedShape.Vertices.RemoveAt(0, LastMergeIndex + 1);
+			MergedShape.ShapeSockets.RemoveAt(FirstMergeIndex);
+			MergedShape.Vertices.RemoveAt(FirstMergeIndex);
 		}
-		OtherShapeSockets.RemoveAt(OtherFirstMergeIndex, FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - (OtherFirstMergeIndex));
-		if (OtherLastMergeIndex < OtherFirstMergeIndex)
-		{
-			OtherShapeSockets.RemoveAt(0, OtherLastMergeIndex + 2);
-		}
+		//MergedShape.ShapeSockets.RemoveAt(FirstMergeIndex, 1/*FMath::Min(LastMergeIndex + 1, MergedShape.ShapeSockets.Num()) - FirstMergeIndex*/);
+		//MergedShape.Vertices.RemoveAt(FirstMergeIndex, 1/*FMath::Min(LastMergeIndex + 1, MergedShape.Vertices.Num()) - FirstMergeIndex*/);
+		//if (LastMergeIndex < FirstMergeIndex)
+		//{
+		//	MergedShape.ShapeSockets.RemoveAt(0, /*LastMergeIndex +*/ 1);
+		//	MergedShape.Vertices.RemoveAt(0, /*LastMergeIndex +*/ 1);
+		//}
+		OtherShapeSockets.RemoveAt(OtherFirstMergeIndex, 1/*FMath::Min(OtherLastMergeIndex + 1, OtherShapeSockets.Num()) - (OtherFirstMergeIndex)*/);
+		//if (OtherLastMergeIndex < OtherFirstMergeIndex)
+		//{
+		//	OtherShapeSockets.RemoveAt(0, OtherLastMergeIndex + 2);
+		//}
 
 		//Combine Shapes
 		MergedShape.ShapeSockets.Insert(OtherShapeSockets, FirstMergeIndex);
@@ -295,6 +333,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 			OtherFirstMergeIndex = Mod(OtherFirstMergeIndex - 1, Other.Num());
 		} while (OtherLastMergeIndex != OtherFirstMergeIndex);
 
+		UE_LOG(LogTemp, Warning, TEXT("/\\---- Merge ----/\\"));
 		// /\ Merge Shapes /\ //
 
 		return true;
