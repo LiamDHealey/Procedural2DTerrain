@@ -192,7 +192,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		}
 
 		// \/ Detect if merge is possible \/ //
-		MergedShape = FTerrainShape(Vertices, ShapeSockets);
+		MergedShape = FTerrainShape(*this);
 		int FirstMergeIndex = FaceIndex;
 		int LastMergeIndex = FaceIndex;
 		int OtherFirstMergeIndex = OtherFaceIndex;
@@ -256,8 +256,8 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		// /\ Detect if merge is possible /\ //
 		
 		// \/ Merge Shapes \/ //
-		TArray<FTerrainSocket> OtherShapeSockets = Other.ShapeSockets;
-		TArray<FVector2D> OtherMergedVerticies = Other.Vertices;
+		TArray<FTerrainSocket> OtherShapeSockets = TArray<FTerrainSocket>(Other.ShapeSockets);
+		TArray<FVector2D> OtherMergedVerticies = TArray<FVector2D>(Other.Vertices);
 
 		//Adjust socket angles
 		MergedShape.ShapeSockets[Mod(LastMergeIndex + 1, MergedShape.ShapeSockets.Num())].IncreaseFirstAngle(OtherShapeSockets[OtherFirstMergeIndex].FirstAngle);

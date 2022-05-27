@@ -16,7 +16,22 @@ void ATerrainHandler::LogTest()
 	FlushPersistentDebugLines(GetWorld());
 	for (int i = 0; i < CurrentShape.Num(); i++)
 	{
-		DrawDebugLine(GetWorld(), GetActorTransform().TransformPosition(FVector(CurrentShape.Vertices[i].X, 0, CurrentShape.Vertices[i].Y)), GetActorTransform().TransformPosition(FVector(CurrentShape.Vertices[(i + 1) % CurrentShape.Num()].X, 0, CurrentShape.Vertices[(i + 1) % CurrentShape.Num()].Y)), FColor::MakeRandomColor(), true, 100, 0U, 10);
+		FVector LineStart = GetActorTransform().TransformPosition(FVector(CurrentShape.Vertices[i].X, 0, CurrentShape.Vertices[i].Y));
+		FVector LineEnd = GetActorTransform().TransformPosition(FVector(CurrentShape.Vertices[(i + 1) % CurrentShape.Num()].X, 0, CurrentShape.Vertices[(i + 1) % CurrentShape.Num()].Y));
+		FColor Color = FColor::MakeRandomColor();
+		DrawDebugLine(GetWorld(), LineStart, LineEnd, Color, true, 100, 0U, 5);
+		Color = (Color.ReinterpretAsLinear() / 2).ToFColor(false);
+		for (int j = 1; j <= i; j++)
+		{
+			if (j % 5 != 0)
+			{
+				DrawDebugLine(GetWorld(), (LineStart + LineEnd) / 2 + FVector(j * 5, 10, 0), (LineStart + LineEnd) / 2 + FVector(j * 5, 10, 10), Color, true, 100, 0U, 3);
+			}
+			else
+			{
+				DrawDebugLine(GetWorld(), (LineStart + LineEnd) / 2 + FVector((j-4) * 5, 10, 0), (LineStart + LineEnd) / 2 + FVector((j-1) * 5, 10, 10), Color, true, 100, 0U, 1.5);
+			}
+		}
 	}
 }
 
