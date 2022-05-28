@@ -74,20 +74,14 @@ void ATerrainHandler::ResetTerrain()
 
 void ATerrainHandler::CollapseSuperPosition()
 {
-	if (bRandomColapse)
-	{
-		if (!SuperPositions.IsEmpty())
-		{
-			int SocketIndex = FMath::RandHelper(SuperPositions.Num());
-			int ShapeIndex = FMath::RandHelper(SuperPositions[SocketIndex].Num());
-			int FaceIndex = FMath::RandHelper(SuperPositions[SocketIndex][ShapeIndex].Num());
-			CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex);
-		}
-	}
-	else
-	{
-		CollapseSuperPosition(CollapseCoords.X, CollapseCoords.Y, CollapseCoords.Z);
-	}
+	//if (!SuperPositions.IsEmpty())
+	//{
+	//	int SocketIndex = FMath::RandHelper(SuperPositions.Num());
+	//	int ShapeIndex = FMath::RandHelper(SuperPositions[SocketIndex].Num());
+	//	int FaceIndex = FMath::RandHelper(SuperPositions[SocketIndex][ShapeIndex].Num());
+	//	CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex);
+	//}
+	CollapseSuperPosition(CollapseCoords.X, CollapseCoords.Y, CollapseCoords.Z);
 }
 
 void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex)

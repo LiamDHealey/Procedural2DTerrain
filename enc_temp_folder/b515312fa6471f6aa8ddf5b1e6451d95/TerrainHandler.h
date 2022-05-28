@@ -29,9 +29,6 @@ public:
 	TArray<UTerrainSpriteData*> UseableSprites;
 
 	UPROPERTY(EditAnywhere)
-	bool bRandomColapse = false;
-
-	UPROPERTY(EditAnywhere, Meta=(EditCondition = "!bRandomColapse"))
 	FIntVector CollapseCoords = FIntVector();
 
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
