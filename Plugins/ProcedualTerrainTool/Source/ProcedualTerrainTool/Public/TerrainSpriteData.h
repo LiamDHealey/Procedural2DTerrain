@@ -21,4 +21,7 @@ public:
 
 	UPROPERTY(EditAnywhere)
 	TArray<FVector2D> Verticies;
+
+	UPROPERTY(EditAnywhere)
+	TArray<int> FaceIndices;
 };

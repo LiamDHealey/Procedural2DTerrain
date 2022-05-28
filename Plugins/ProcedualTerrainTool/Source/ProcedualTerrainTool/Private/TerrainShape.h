@@ -147,13 +147,23 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	//Constructs a terrain shape from the given terrain's geometry.
 	FTerrainShape(TArray<FVector2D> TerrainGeometery = TArray<FVector2D>())
 	{
+		TArray<int> FaceIndices = TArray<int>();
+		FaceIndices.SetNumZeroed(TerrainGeometery.Num());
+		FTerrainShape(TerrainGeometery, FaceIndices);
+	}
+
+	//Constructs a terrain shape from the given terrain's geometry and face indices.
+	FTerrainShape(TArray<FVector2D> TerrainGeometery, TArray<int> FaceIndices)
+	{
 		if (TerrainGeometery.IsEmpty())
 		{
 			return;
 		}
+
+		FaceIndices.SetNumZeroed(TerrainGeometery.Num());
 		for (int GeoIndex = 1; GeoIndex <= TerrainGeometery.Num(); GeoIndex++)
 		{
-			FTerrainSocket NewSocket = FTerrainSocket(0, TerrainGeometery[GeoIndex - 1], TerrainGeometery[GeoIndex % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 1) % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 2) % TerrainGeometery.Num()]);
+			FTerrainSocket NewSocket = FTerrainSocket(FaceIndices[GeoIndex % FaceIndices.Num()], TerrainGeometery[GeoIndex - 1], TerrainGeometery[GeoIndex % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 1) % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 2) % TerrainGeometery.Num()]);
 			ShapeSockets.Emplace(NewSocket);
 			Vertices.Emplace(TerrainGeometery[GeoIndex % TerrainGeometery.Num()]);
 		}

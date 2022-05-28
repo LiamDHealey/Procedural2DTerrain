@@ -24,7 +24,7 @@ void ATerrainHandler::LogTest()
 		DrawDebugLine(GetWorld(), LineStart, LineEnd, Color, true, 100, 0U, 5);
 
 		Color = (Color.ReinterpretAsLinear() / 2).ToFColor(false);
-		for (int j = 1; j <= i; j++)
+		for (int j = 1; j <= CurrentShape.ShapeSockets[i].SocketIndex; j++)
 		{
 			if (j % 5 != 0)
 			{
@@ -45,7 +45,7 @@ void ATerrainHandler::RefreshUseableSpriteData()
 
 	for (UTerrainSpriteData* EachUseableSprite : UseableSprites)
 	{
-		SpriteShapes.Emplace(FTerrainShape(EachUseableSprite->Verticies));
+		SpriteShapes.Emplace(FTerrainShape(EachUseableSprite->Verticies, EachUseableSprite->FaceIndices));
 
 		TArray<bool> Faces = TArray<bool>();
 		Faces.Init(true, EachUseableSprite->Verticies.Num());
@@ -79,9 +79,15 @@ void ATerrainHandler::CollapseSuperPosition()
 		if (!SuperPositions.IsEmpty())
 		{
 			int SocketIndex = FMath::RandHelper(SuperPositions.Num());
-			int ShapeIndex = FMath::RandHelper(SuperPositions[SocketIndex].Num());
-			int FaceIndex = FMath::RandHelper(SuperPositions[SocketIndex][ShapeIndex].Num());
-			CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex);
+			if (!SuperPositions[SocketIndex].IsEmpty())
+			{
+				int ShapeIndex = FMath::RandHelper(SuperPositions[SocketIndex].Num());
+				if (!SuperPositions[SocketIndex][ShapeIndex].IsEmpty())
+				{
+					int FaceIndex = FMath::RandHelper(SuperPositions[SocketIndex][ShapeIndex].Num());
+					CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex);
+				}
+			}
 		}
 	}
 	else
@@ -97,10 +103,10 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 		FTerrainShape NewShape;
 		FTransform2D MergeTransform;
 
-		UE_LOG(LogTemp, Warning, TEXT("\\/----------------------------------------\\/"));
-		if (ensureMsgf(CurrentShape.MergeShape(NewShape, MergeTransform, SocketIndex, SpriteShapes[ShapeIndex], FaceIndex, true), TEXT("Super Position Array False")))
+		UE_LOG(LogTemp, Warning, TEXT("\\/------------------------ %i, %i, %i ------------------------\\/"), SocketIndex, ShapeIndex, FaceIndex);
+		if (ensureAlwaysMsgf(CurrentShape.MergeShape(NewShape, MergeTransform, SocketIndex, SpriteShapes[ShapeIndex], FaceIndex, true), TEXT("Super Position Array False")))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("/\\----------------------------------------/\\"));
+			UE_LOG(LogTemp, Warning, TEXT("/\\------------------------ %i, %i, %i ------------------------/\\"), SocketIndex, ShapeIndex, FaceIndex);
 			CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex, NewShape, MergeTransform);
 		}
 	}
@@ -143,7 +149,7 @@ void ATerrainHandler::RefreshSuperPositions()
 	SuperPositions.Reserve(CurrentShape.Num());
 	for (int SocketIndex = 0; SocketIndex < CurrentShape.Num(); SocketIndex++)
 	{
-		if (SuperPositions.IsValidIndex(SocketIndex))
+		if (!SuperPositions.IsValidIndex(SocketIndex))
 		{
 			SuperPositions.Emplace(BaseSuperPositions);
 		}
