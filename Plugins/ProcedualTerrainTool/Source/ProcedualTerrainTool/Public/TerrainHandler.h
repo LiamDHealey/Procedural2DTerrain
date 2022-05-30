@@ -29,6 +29,9 @@ public:
 	TArray<UTerrainSpriteData*> UseableSprites;
 
 	UPROPERTY(EditAnywhere)
+	int CollapsePredictionDepth = 0;
+
+	UPROPERTY(EditAnywhere)
 	bool bRandomColapse = false;
 
 	UPROPERTY(EditAnywhere, Meta=(EditCondition = "!bRandomColapse"))

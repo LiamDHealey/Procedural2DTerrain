@@ -42,6 +42,7 @@ void ATerrainHandler::LogTest()
 void ATerrainHandler::RefreshUseableSpriteData()
 {
 	SpriteShapes.Empty();
+	BaseSuperPositions.Empty();
 
 	for (UTerrainSpriteData* EachUseableSprite : UseableSprites)
 	{
@@ -137,28 +138,33 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 			//Propagate New Super Positions
 			TArray<TArray<TArray<bool>>> NewSuperPositions = TArray<TArray<TArray<bool>>>();
 			NewSuperPositions.SetNum(NewShape.Num());
+			FString Debug1 = FString();
 
 			for (int Index = 0; Index < NewSuperPositions.Num(); Index++)
 			{
 				if (Index < SuperPositions.Num() - MergeResult.Shrinkage)
 				{
-					UE_LOG(LogTemp, Warning, TEXT("%i"), UPTTMath::Mod(Index + MergeResult.Offset, SuperPositions.Num()));
-					NewSuperPositions[Index] = SuperPositions[UPTTMath::Mod(Index + MergeResult.Offset, SuperPositions.Num())];
+					Debug1 += FString::FromInt(UPTTMath::Mod(Index - MergeResult.Offset, SuperPositions.Num())) + ", ";
+					NewSuperPositions[Index] = SuperPositions[UPTTMath::Mod(Index - MergeResult.Offset, SuperPositions.Num())];
 				}
 				else
 				{
-					UE_LOG(LogTemp, Warning, TEXT("B"));
+					Debug1 += "B, ";
 					NewSuperPositions[Index] = BaseSuperPositions;
 				}
 			}
 			SuperPositions = NewSuperPositions;
 			CurrentShape = NewShape;
 
+			UE_LOG(LogTemp, Warning, TEXT("%s"), *Debug1);
 
+			UE_LOG(LogTemp, Warning, TEXT("-------------"));
 			int NumberOfPossibleCollapses = 0;
 			FIntVector CollapseIndex = FIntVector();
 			for (int Offset = 0; Offset < MergeResult.Growth + 2; Offset++)
 			{
+				FString Debug = FString();
+				Debug += FString::FromInt(UPTTMath::Mod(CurrentShape.Num() - 1 - MergeResult.Growth + Offset, CurrentShape.Num())) + "|  ";
 				int CollapseSocketIndex = UPTTMath::Mod(CurrentShape.Num() - 1 - MergeResult.Growth + Offset, CurrentShape.Num());
 				for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
 				{
@@ -170,17 +176,35 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 							FTerrainShapeMergeResult CollapsedShapeMergeResult;
 							if (CurrentShape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, SpriteShapes[CollapseShapeIndex], CollapseFaceIndex))
 							{
+								Debug += "C";
 								bool bCanCollapse = HasNewCollapseableSuperPositions(CollapsedShape, CollapsedShapeMergeResult);
 								SuperPositions[CollapseSocketIndex][CollapseShapeIndex][CollapseFaceIndex] = bCanCollapse;
 								if (bCanCollapse)
 								{
+									Debug += "T";
 									NumberOfPossibleCollapses++;
 									CollapseIndex = FIntVector(CollapseSocketIndex, CollapseShapeIndex, CollapseFaceIndex);
 								}
+								else
+								{
+									Debug += "F";
+								}
+							}
+							else
+							{
+								Debug += " F";
+								SuperPositions[CollapseSocketIndex][CollapseShapeIndex][CollapseFaceIndex] = false;
 							}
 						}
+						else
+						{
+							Debug += "  ";
+						}
+						Debug += ", ";
 					}
+					Debug += "  |  ";
 				}
+				UE_LOG(LogTemp, Warning, TEXT("%s"), *Debug);
 			}
 
 			if (NumberOfPossibleCollapses == 1)
