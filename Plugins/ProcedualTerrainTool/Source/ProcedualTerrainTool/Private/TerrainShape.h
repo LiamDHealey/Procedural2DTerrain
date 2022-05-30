@@ -1,6 +1,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "ProcedualTerrainToolMath.h"
+
 #include "TerrainShape.generated.h"
 
 /**
@@ -146,6 +149,10 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShapeMergeResult
 	//The number of new vertices gained during the merge.
 	UPROPERTY()
 	int Growth = 0;
+
+	//The number of old vertices lost during the merge.
+	UPROPERTY()
+	int Shrinkage = 0;
 };
 
 /**
@@ -207,6 +214,101 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	}
 
 	/**
+	 * Determines whether this shape can merge with another.
+	 *
+	 * @param FaceIndex - The index of the face on this shape to start the merge at.
+	 * @param Other - The other shape to query.
+	 * @param FaceIndex - The index of the face on this the other shape to start the merge at.
+	 * @return Whether or not this shape can be merged with the other shape.
+	 */
+	bool MergeShape(int FaceIndex, FTerrainShape Other, int OtherFaceIndex) const
+	{
+		//Account for empty shapes.
+		if (ShapeSockets.IsEmpty() && !Other.ShapeSockets.IsEmpty())
+		{
+
+			return true;
+		}
+
+		//Fail Invalid Merges
+		if (Other.ShapeSockets.IsEmpty() || !ShapeSockets.IsValidIndex(FaceIndex) || !Other.ShapeSockets.IsValidIndex(OtherFaceIndex))
+		{
+			return false;
+		}
+
+		// \/ Detect if merge is possible \/ //
+
+
+		bool bClockwise = false;
+		bool bSearchClockwise = true;
+		do
+		{
+			//Reset indices
+
+			int SearchIndex = UPTTMath::Mod(FaceIndex + bClockwise, Num());
+			int OtherSearchIndex = UPTTMath::Mod(OtherFaceIndex - bClockwise, Other.Num());
+
+			//Search all of shapes sockets to detect if connection is possible
+			do
+			{
+				//Test socket connectivity
+				switch (ShapeSockets[SearchIndex].CanConnectToSocket(Other.ShapeSockets[OtherSearchIndex]))
+				{
+				case EConnectionResult::No:
+					return false;
+
+				case EConnectionResult::CheckNext:
+					if (!bClockwise)
+					{
+						if (bSearchClockwise)
+						{
+							goto nextLoop;
+						}
+						goto skipLoop;
+					}
+					break;
+
+				case EConnectionResult::CheckPrevious:
+					if (bClockwise)
+					{
+						goto nextLoop;
+					}
+					bSearchClockwise = false;
+					break;
+
+				case EConnectionResult::CheckBoth:
+					break;
+
+				case EConnectionResult::Yes:
+					if (ensureMsgf(SearchIndex == FaceIndex, TEXT("Improper Shape Angle Detection")))
+					{
+						goto skipLoop;
+					}
+
+					goto nextLoop;
+
+				default:
+					ensureMsgf(false, TEXT("Invalid Socket Test Result"));
+					break;
+				}
+
+				//Iterate Indices
+				SearchIndex = UPTTMath::Mod(SearchIndex + (bClockwise ? 1 : -1), Num());
+				OtherSearchIndex = UPTTMath::Mod(OtherSearchIndex + (!bClockwise ? 1 : -1), Other.Num());
+
+			} while (SearchIndex != FaceIndex);
+			ensureMsgf(false, TEXT("Shape indices mismatch"));
+
+		nextLoop:
+			bClockwise = !bClockwise;
+
+		} while ((bClockwise));
+
+	skipLoop:
+		return true;
+	}
+
+	/**
 	 * Attempts to merge this shape with another.
 	 * 
 	 * @param MergedShape - The shape of the this and other combined.
@@ -216,7 +318,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	 * @param FaceIndex - The index of the face on this the other shape to start the merge at.
 	 * @return Whether or not this shape can be merged with the other shape.
 	 */
-	bool MergeShape(FTerrainShape& MergedShape, FTerrainShapeMergeResult& MergeResult, int FaceIndex, FTerrainShape Other, int OtherFaceIndex, bool bDebug = false) const
+	bool MergeShape(FTerrainShape& MergedShape, FTerrainShapeMergeResult& MergeResult, int FaceIndex, FTerrainShape Other, int OtherFaceIndex) const
 	{
 		MergeResult = FTerrainShapeMergeResult();
 
@@ -249,8 +351,8 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		{
 			//Reset indices
 			
-			int SearchIndex = Mod(FaceIndex + bClockwise, Num());
-			int OtherSearchIndex = Mod(OtherFaceIndex - bClockwise, Other.Num());
+			int SearchIndex = UPTTMath::Mod(FaceIndex + bClockwise, Num());
+			int OtherSearchIndex = UPTTMath::Mod(OtherFaceIndex - bClockwise, Other.Num());
 
 			//Search all of shapes sockets to detect if connection is possible
 			do
@@ -302,8 +404,8 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 				}
 
 				//Iterate Indices
-				SearchIndex = Mod(SearchIndex + (bClockwise ? 1 : -1), Num());
-				OtherSearchIndex = Mod(OtherSearchIndex + (!bClockwise ? 1 : -1), Other.Num());
+				SearchIndex = UPTTMath::Mod(SearchIndex + (bClockwise ? 1 : -1), Num());
+				OtherSearchIndex = UPTTMath::Mod(OtherSearchIndex + (!bClockwise ? 1 : -1), Other.Num());
 
 			} while (SearchIndex != FaceIndex);
 			ensureMsgf(false, TEXT("Shape indices mismatch"));
@@ -318,25 +420,24 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		// \/ Merge Shapes \/ //
 		
 		//Prune Merged Sockets & Vertices
-		int MergeLength = (FirstMergeIndex <= LastMergeIndex ? LastMergeIndex - FirstMergeIndex + 1 : LastMergeIndex + Num() - FirstMergeIndex + 1);
+		MergeResult.Shrinkage = (FirstMergeIndex <= LastMergeIndex ? LastMergeIndex - FirstMergeIndex + 1 : LastMergeIndex + Num() - FirstMergeIndex + 1);
 		MergedShape = FTerrainShape();
-		MergedShape.ShapeSockets.SetNum(Num() - MergeLength);
-		MergedShape.Vertices.SetNum(Num() - MergeLength);
+		MergedShape.ShapeSockets.SetNum(Num() - MergeResult.Shrinkage);
+		MergedShape.Vertices.SetNum(Num() - MergeResult.Shrinkage);
 
-		MergeResult.Growth = -1 * MergeLength;
-		MergeResult.Offset = -1 * Mod(LastMergeIndex + 1, Num());
+		MergeResult.Offset = -1 * UPTTMath::Mod(LastMergeIndex + 1, Num());
 
 		for (int MergeOffset = 0; MergeOffset < MergedShape.Num(); MergeOffset++)
 		{
-			MergedShape.ShapeSockets[MergeOffset] = ShapeSockets[Mod(LastMergeIndex + 1 + MergeOffset, Num())];
-			MergedShape.Vertices[MergeOffset] = Vertices[Mod(LastMergeIndex + 1 + MergeOffset, Num())];
+			MergedShape.ShapeSockets[MergeOffset] = ShapeSockets[UPTTMath::Mod(LastMergeIndex + 1 + MergeOffset, Num())];
+			MergedShape.Vertices[MergeOffset] = Vertices[UPTTMath::Mod(LastMergeIndex + 1 + MergeOffset, Num())];
 		}
 
 
 		//Adjust socket angles
 		TArray<FTerrainSocket> OtherShapeSockets = TArray<FTerrainSocket>(Other.ShapeSockets);
-		OtherShapeSockets[Mod(OtherLastMergeIndex + 1, OtherShapeSockets.Num())].IncreaseFirstAngle(ShapeSockets[FirstMergeIndex].FirstAngle);
-		OtherShapeSockets[Mod(OtherFirstMergeIndex - 1, OtherShapeSockets.Num())].IncreaseSecondAngle(ShapeSockets[LastMergeIndex].SecondAngle);
+		OtherShapeSockets[UPTTMath::Mod(OtherLastMergeIndex + 1, OtherShapeSockets.Num())].IncreaseFirstAngle(ShapeSockets[FirstMergeIndex].FirstAngle);
+		OtherShapeSockets[UPTTMath::Mod(OtherFirstMergeIndex - 1, OtherShapeSockets.Num())].IncreaseSecondAngle(ShapeSockets[LastMergeIndex].SecondAngle);
 
 		MergedShape.ShapeSockets[0].IncreaseFirstAngle(Other.ShapeSockets[OtherFirstMergeIndex].FirstAngle);
 		MergedShape.ShapeSockets[MergedShape.Num() - 1].IncreaseSecondAngle(Other.ShapeSockets[OtherLastMergeIndex].SecondAngle);
@@ -344,36 +445,25 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 
 		//Get Other Transform
 		FQuat2D Target = FQuat2D((MergedShape.Vertices[0] - Vertices[LastMergeIndex]).GetSafeNormal());
-		FQuat2D Initial = FQuat2D((Other.Vertices[OtherFirstMergeIndex] - Other.Vertices[Mod(OtherFirstMergeIndex + 1, Other.Vertices.Num())]).GetSafeNormal());
+		FQuat2D Initial = FQuat2D((Other.Vertices[OtherFirstMergeIndex] - Other.Vertices[UPTTMath::Mod(OtherFirstMergeIndex + 1, Other.Vertices.Num())]).GetSafeNormal());
 		FQuat2D Rotation = Initial.Inverse().Concatenate(Target);
-		MergeResult.Transform = FTransform2D(Rotation, Vertices[FirstMergeIndex] - Rotation.TransformPoint(Other.Vertices[Mod(OtherLastMergeIndex + 1, Other.Vertices.Num())]));
+		MergeResult.Transform = FTransform2D(Rotation, Vertices[FirstMergeIndex] - Rotation.TransformPoint(Other.Vertices[UPTTMath::Mod(OtherLastMergeIndex + 1, Other.Vertices.Num())]));
 
 
 		//Add other vertices
-		OtherLastMergeIndex = Mod(OtherLastMergeIndex + 1, Other.Num());
+		OtherLastMergeIndex = UPTTMath::Mod(OtherLastMergeIndex + 1, Other.Num());
 		do
 		{
 			MergedShape.Vertices.Emplace(MergeResult.Transform.TransformPoint(Other.Vertices[OtherLastMergeIndex]));
 			MergedShape.ShapeSockets.Emplace(OtherShapeSockets[OtherLastMergeIndex]);
 			MergeResult.Growth++;
 
-			OtherLastMergeIndex = Mod(OtherLastMergeIndex + 1, Other.Num());
+			OtherLastMergeIndex = UPTTMath::Mod(OtherLastMergeIndex + 1, Other.Num());
 		} while (OtherLastMergeIndex != OtherFirstMergeIndex);
 
 		// /\ Merge Shapes /\ //
 		
 
 		return true;
-	}
-
-private:
-	int Mod(int A, int B) const
-	{
-		int Value = A % B;
-		if (Value < 0)
-		{
-			Value += B;
-		}
-		return Value;
 	}
 };

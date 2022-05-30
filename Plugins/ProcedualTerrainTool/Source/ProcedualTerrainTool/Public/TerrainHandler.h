@@ -43,7 +43,6 @@ public:
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
 	void CollapseSuperPosition();
 	void CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex);
-	void CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex, FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult);
 
 	//UPROPERTY(VisibleAnywhere, AdvancedDisplay)
 	FTerrainShape CurrentShape = FTerrainShape();
@@ -57,5 +56,5 @@ private:
 	TArray<TArray<TArray<bool>>> SuperPositions = TArray<TArray<TArray<bool>>>();
 
 	UFUNCTION()
-	void RefreshSuperPositions(int SearchDepth = 0);
+	bool HasNewCollapseableSuperPositions(FTerrainShape Shape, FTerrainShapeMergeResult MergeResult, int SearchDepth = 0);
 };
