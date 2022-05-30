@@ -101,25 +101,25 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 	if (SuperPositions.IsValidIndex(SocketIndex) && SuperPositions[SocketIndex].IsValidIndex(ShapeIndex) && SuperPositions[SocketIndex][ShapeIndex].IsValidIndex(FaceIndex) && SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
 	{
 		FTerrainShape NewShape;
-		FTransform2D MergeTransform;
+		FTerrainShapeMergeResult MergeResult;
 
 		UE_LOG(LogTemp, Warning, TEXT("\\/------------------------ %i, %i, %i ------------------------\\/"), SocketIndex, ShapeIndex, FaceIndex);
-		if (ensureAlwaysMsgf(CurrentShape.MergeShape(NewShape, MergeTransform, SocketIndex, SpriteShapes[ShapeIndex], FaceIndex, true), TEXT("Super Position Array False")))
+		if (ensureAlwaysMsgf(CurrentShape.MergeShape(NewShape, MergeResult, SocketIndex, SpriteShapes[ShapeIndex], FaceIndex, true), TEXT("Super Position Array False")))
 		{
 			UE_LOG(LogTemp, Warning, TEXT("/\\------------------------ %i, %i, %i ------------------------/\\"), SocketIndex, ShapeIndex, FaceIndex);
-			CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex, NewShape, MergeTransform);
+			CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex, NewShape, MergeResult);
 		}
 	}
 }
 
-void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex, FTerrainShape MergeResult, FTransform2D MergeTransform)
+void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex, FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult)
 {
 	//Calculate Sprite Rotation
 	float A;
 	float B;
 	float C;
 	float D;
-	MergeTransform.GetMatrix().GetMatrix(A, B, C, D);
+	MergeResult.Transform.GetMatrix().GetMatrix(A, B, C, D);
 	if (FMath::IsNearlyZero(A))
 	{
 		A = SMALL_NUMBER;
@@ -132,7 +132,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 	}
 
 	//Spawn Sprite
-	FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), Angle), FVector(MergeTransform.GetTranslation().X, 0, MergeTransform.GetTranslation().Y));
+	FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), Angle), FVector(MergeResult.Transform.GetTranslation().X, 0, MergeResult.Transform.GetTranslation().Y));
 	UPaperSpriteComponent* NewSprite = NewObject<UPaperSpriteComponent>(this);
 	NewSprite->SetSprite(UseableSprites[ShapeIndex]->Sprite);
 	NewSprite->RegisterComponent();
@@ -140,38 +140,18 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 	NewSprite->SetRelativeTransform(Transform);
 
 	//Refresh Superpositions
-	CurrentShape = MergeResult;
+	CurrentShape = NewShape;
 	RefreshSuperPositions();
 }
 
-void ATerrainHandler::RefreshSuperPositions()
+void ATerrainHandler::RefreshSuperPositions(/*int Breadth,*/ int Depth)
 {
-	SuperPositions.Reserve(CurrentShape.Num());
-	for (int SocketIndex = 0; SocketIndex < CurrentShape.Num(); SocketIndex++)
-	{
-		if (!SuperPositions.IsValidIndex(SocketIndex))
-		{
-			SuperPositions.Emplace(BaseSuperPositions);
-		}
+	//for (int BreadthIndex = 0; BreadthIndex < Breadth; BreadthIndex++)
+	//{
 
-		for (int ShapeIndex = 0; ShapeIndex < SpriteShapes.Num(); ShapeIndex++)
-		{
-			int SuccessCount = 0;
-			int SucceededFaceIndex = 0;
-			FTransform2D SucceededTransform;
-			FTerrainShape NewShape;
+	//	for (int DepthIndex = 0; DepthIndex < Depth; DepthIndex++)
+	//	{
 
-			for (int FaceIndex = 0; FaceIndex < SpriteShapes[ShapeIndex].Num(); FaceIndex++)
-			{
-				SuperPositions[SocketIndex][ShapeIndex][FaceIndex] = CurrentShape.MergeShape(NewShape, SucceededTransform, SocketIndex, SpriteShapes[ShapeIndex], FaceIndex);
-				SuccessCount++;
-				SucceededFaceIndex = FaceIndex;
-			}
-
-			if (SuccessCount == 1)
-			{
-				CollapseSuperPosition(SocketIndex, ShapeIndex, SucceededFaceIndex, NewShape, SucceededTransform);
-			}
-		}
-	}
+	//	}
+	//}
 }
