@@ -136,16 +136,18 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 
 			//Propagate New Super Positions
 			TArray<TArray<TArray<bool>>> NewSuperPositions = TArray<TArray<TArray<bool>>>();
-			NewSuperPositions.SetNum(SuperPositions.Num() + MergeResult.Growth - MergeResult.Shrinkage);
+			NewSuperPositions.SetNum(NewShape.Num());
 
-			for (int Index = 0; Index < NewSuperPositions.Num() - MergeResult.Shrinkage; Index++)
+			for (int Index = 0; Index < NewSuperPositions.Num(); Index++)
 			{
 				if (Index < SuperPositions.Num() - MergeResult.Shrinkage)
 				{
+					UE_LOG(LogTemp, Warning, TEXT("%i"), UPTTMath::Mod(Index + MergeResult.Offset, SuperPositions.Num()));
 					NewSuperPositions[Index] = SuperPositions[UPTTMath::Mod(Index + MergeResult.Offset, SuperPositions.Num())];
 				}
 				else
 				{
+					UE_LOG(LogTemp, Warning, TEXT("B"));
 					NewSuperPositions[Index] = BaseSuperPositions;
 				}
 			}
