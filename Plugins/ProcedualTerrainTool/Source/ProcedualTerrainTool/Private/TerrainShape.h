@@ -104,7 +104,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	EConnectionResult CanConnectToSocket(FTerrainSocket Other) const
 	{
 		float Precision = KINDA_SMALL_NUMBER;
-		if (SocketIndex < 0 || SocketIndex != Other.SocketIndex || Length != Other.Length || SecondAngle + Other.FirstAngle > 2 * PI + Precision || FirstAngle + Other.SecondAngle > 2 * PI + Precision)
+		if (SocketIndex < 0 || SocketIndex != Other.SocketIndex || !FMath::IsNearlyEqual(Length, Other.Length, Precision) || SecondAngle + Other.FirstAngle > 2 * PI + Precision || FirstAngle + Other.SecondAngle > 2 * PI + Precision)
 		{
 			return EConnectionResult::No;
 		}
