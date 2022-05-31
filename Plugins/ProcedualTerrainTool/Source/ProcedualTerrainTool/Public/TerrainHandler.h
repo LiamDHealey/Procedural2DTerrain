@@ -34,6 +34,9 @@ public:
 	UPROPERTY(EditAnywhere)
 	bool bRandomColapse = false;
 
+	UPROPERTY(EditAnywhere, Meta = (EditCondition = "bRandomColapse", ClampMin = "1"))
+	int NumberOfCollapses = 1;
+
 	UPROPERTY(EditAnywhere, Meta=(EditCondition = "!bRandomColapse"))
 	FIntVector CollapseCoords = FIntVector();
 

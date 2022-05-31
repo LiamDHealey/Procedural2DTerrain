@@ -77,16 +77,45 @@ void ATerrainHandler::CollapseSuperPosition()
 {
 	if (bRandomColapse)
 	{
-		if (!SuperPositions.IsEmpty())
+		for (int CollapseIndex = 0; CollapseIndex < NumberOfCollapses; CollapseIndex++)
 		{
-			int SocketIndex = FMath::RandHelper(SuperPositions.Num());
-			if (!SuperPositions[SocketIndex].IsEmpty())
+			if (!SuperPositions.IsEmpty())
 			{
-				int ShapeIndex = FMath::RandHelper(SuperPositions[SocketIndex].Num());
-				if (!SuperPositions[SocketIndex][ShapeIndex].IsEmpty())
+				//Get Closet Socket To Origin
+				int SocketIndex = 0;
+				if (!CurrentShape.ShapeSockets.IsEmpty())
 				{
-					int FaceIndex = FMath::RandHelper(SuperPositions[SocketIndex][ShapeIndex].Num());
-					CollapseSuperPosition(SocketIndex, ShapeIndex, FaceIndex);
+					float ClosestDistanceSquared = ((CurrentShape.Vertices[0] + CurrentShape.Vertices[1]) / 2).SquaredLength();
+					for (int SearchIndex = 1; SearchIndex < CurrentShape.Num(); SearchIndex++)
+					{
+						float SeachDistanceSquared = ((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2).SquaredLength();
+						if (SeachDistanceSquared < ClosestDistanceSquared)
+						{
+							ClosestDistanceSquared = SeachDistanceSquared;
+							SocketIndex = SearchIndex;
+						}
+					}
+				}
+
+				TArray<FIntPoint> PossibleCollapses = TArray<FIntPoint>();
+				for (int ShapeIndex = 0; ShapeIndex < SpriteShapes.Num(); ShapeIndex++)
+				{
+					for (int FaceIndex = 0; FaceIndex < SpriteShapes[ShapeIndex].Num(); FaceIndex++)
+					{
+						if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
+						{
+							PossibleCollapses.Emplace(FIntPoint(ShapeIndex, FaceIndex));
+						}
+					}
+				}
+				if (!PossibleCollapses.IsEmpty())
+				{
+					FIntPoint SuperPositionToCollapse = PossibleCollapses[FMath::RandHelper(PossibleCollapses.Num())];
+					CollapseSuperPosition(SocketIndex, SuperPositionToCollapse.X, SuperPositionToCollapse.Y);
+				}
+				else
+				{
+					UE_LOG(LogTemp, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at socket index %i or regenerating the terrain"), SocketIndex);
 				}
 			}
 		}
@@ -99,12 +128,12 @@ void ATerrainHandler::CollapseSuperPosition()
 
 void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex)
 {
+	UE_LOG(LogTemp, Warning, TEXT("\\/------------------------ %i, %i, %i ------------------------\\/"), SocketIndex, ShapeIndex, FaceIndex);
 	if (SuperPositions.IsValidIndex(SocketIndex) && SuperPositions[SocketIndex].IsValidIndex(ShapeIndex) && SuperPositions[SocketIndex][ShapeIndex].IsValidIndex(FaceIndex) && SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
 	{
 		FTerrainShape NewShape;
 		FTerrainShapeMergeResult MergeResult;
 
-		UE_LOG(LogTemp, Warning, TEXT("\\/------------------------ %i, %i, %i ------------------------\\/"), SocketIndex, ShapeIndex, FaceIndex);
 		if (ensureAlwaysMsgf(CurrentShape.MergeShape(NewShape, MergeResult, SocketIndex, SpriteShapes[ShapeIndex], FaceIndex), TEXT("Super Position Array False")))
 		{
 			//Calculate Sprite Rotation
@@ -142,6 +171,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 
 			for (int Index = 0; Index < NewSuperPositions.Num(); Index++)
 			{
+				Debug1 += FString::FromInt(Index) + "<-";
 				if (Index < SuperPositions.Num() - MergeResult.Shrinkage)
 				{
 					Debug1 += FString::FromInt(UPTTMath::Mod(Index - MergeResult.Offset, SuperPositions.Num())) + ", ";
@@ -164,13 +194,13 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 			for (int Offset = 0; Offset < MergeResult.Growth + 2; Offset++)
 			{
 				FString Debug = FString();
-				Debug += FString::FromInt(UPTTMath::Mod(CurrentShape.Num() - 1 - MergeResult.Growth + Offset, CurrentShape.Num())) + "|  ";
+				Debug += FString::FromInt(UPTTMath::Mod(CurrentShape.Num() - 1 - MergeResult.Growth + Offset, CurrentShape.Num())) + "\t|  ";
 				int CollapseSocketIndex = UPTTMath::Mod(CurrentShape.Num() - 1 - MergeResult.Growth + Offset, CurrentShape.Num());
 				for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
 				{
 					for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperPositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)
 					{
-						if (SuperPositions[CollapseSocketIndex][CollapseShapeIndex][CollapseFaceIndex])
+						if (/*SuperPositions[CollapseSocketIndex][CollapseShapeIndex][CollapseFaceIndex]*/true)
 						{
 							FTerrainShape CollapsedShape;
 							FTerrainShapeMergeResult CollapsedShapeMergeResult;
@@ -213,8 +243,10 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 			}
 
 			// /\ Refresh Super Positions /\ //
+			return;
 		}
 	}
+	UE_LOG(LogTemp, Error, TEXT("Failed"));
 }
 
 bool ATerrainHandler::HasNewCollapseableSuperPositions(FTerrainShape Shape, FTerrainShapeMergeResult MergeResult, int SearchDepth)
@@ -234,10 +266,11 @@ bool ATerrainHandler::HasNewCollapseableSuperPositions(FTerrainShape Shape, FTer
 					{
 						goto NextSocket;
 					}
-				}				
+				}
 			}
 		}
 		return false;
+
 
 		NextSocket:
 		;

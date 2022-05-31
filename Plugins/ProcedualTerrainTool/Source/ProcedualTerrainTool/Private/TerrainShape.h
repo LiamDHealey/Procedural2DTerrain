@@ -103,13 +103,14 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	 */
 	EConnectionResult CanConnectToSocket(FTerrainSocket Other) const
 	{
-		if (SocketIndex < 0 || SocketIndex != Other.SocketIndex || Length != Other.Length || SecondAngle + Other.FirstAngle > 2 * PI || FirstAngle + Other.SecondAngle > 2 * PI)
+		float Precision = KINDA_SMALL_NUMBER;
+		if (SocketIndex < 0 || SocketIndex != Other.SocketIndex || Length != Other.Length || SecondAngle + Other.FirstAngle > 2 * PI + Precision || FirstAngle + Other.SecondAngle > 2 * PI + Precision)
 		{
 			return EConnectionResult::No;
 		}
 
-		bool bCheckNext = FMath::IsNearlyEqual(SecondAngle + Other.FirstAngle, TWO_PI, .1);
-		bool bCheckPrevious = FMath::IsNearlyEqual(FirstAngle + Other.SecondAngle, TWO_PI, .1);
+		bool bCheckNext = FMath::IsNearlyEqual(SecondAngle + Other.FirstAngle, TWO_PI, Precision);
+		bool bCheckPrevious = FMath::IsNearlyEqual(FirstAngle + Other.SecondAngle, TWO_PI, Precision);
 
 		switch ((bCheckNext)+(2 * bCheckPrevious))
 		{
