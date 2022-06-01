@@ -6,6 +6,8 @@
 #include "PaperSpriteComponent.h"
 #include "TerrainSpriteData.h"
 
+DEFINE_LOG_CATEGORY(LogTerrainTool);
+
 ATerrainHandler::ATerrainHandler()
 {
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
@@ -39,18 +41,18 @@ void ATerrainHandler::LogTest()
 }
 
 
-void ATerrainHandler::RefreshUseableSpriteData()
+void ATerrainHandler::RefreshTileSet()
 {
 	SpriteShapes.Empty();
 	BaseSuperPositions.Empty();
-	CurrentSprites = UseableSprites;
+	CurrentSpawnableTiles = SpawnableTiles;
 
-	for (UTerrainSpriteData* EachUseableSprite : UseableSprites)
+	for (FTerrainTileData EachSpawnableTiles : SpawnableTiles)
 	{
-		SpriteShapes.Emplace(FTerrainShape(EachUseableSprite->Verticies, EachUseableSprite->FaceIndices));
+		SpriteShapes.Emplace(FTerrainShape(EachSpawnableTiles.SpriteData->Verticies, EachSpawnableTiles.SpriteData->FaceIndices));
 
 		TArray<bool> Faces = TArray<bool>();
-		Faces.Init(true, EachUseableSprite->Verticies.Num());
+		Faces.Init(true, EachSpawnableTiles.SpriteData->Verticies.Num());
 		BaseSuperPositions.Emplace(Faces);
 	}
 
@@ -98,25 +100,57 @@ void ATerrainHandler::CollapseSuperPosition()
 					}
 				}
 
-				TArray<FIntPoint> PossibleCollapses = TArray<FIntPoint>();
+				TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
 				for (int ShapeIndex = 0; ShapeIndex < SpriteShapes.Num(); ShapeIndex++)
 				{
 					for (int FaceIndex = 0; FaceIndex < SpriteShapes[ShapeIndex].Num(); FaceIndex++)
 					{
 						if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
 						{
-							PossibleCollapses.Emplace(FIntPoint(ShapeIndex, FaceIndex));
+							if (!PossibleCollapses.Contains(ShapeIndex))
+							{
+								PossibleCollapses.Emplace(ShapeIndex, TArray<int>());
+							}
+
+							PossibleCollapses.Find(ShapeIndex)->Emplace(FaceIndex);
 						}
 					}
 				}
 				if (!PossibleCollapses.IsEmpty())
 				{
-					FIntPoint SuperPositionToCollapse = PossibleCollapses[FMath::RandHelper(PossibleCollapses.Num())];
-					CollapseSuperPosition(SocketIndex, SuperPositionToCollapse.X, SuperPositionToCollapse.Y);
+					TArray<int> Keys;
+					PossibleCollapses.GenerateKeyArray(Keys);
+					TArray<float> Weights = TArray<float>();
+					float WeightSum = 0;
+					for (int EachKey : Keys)
+					{
+						float LastWeight = 0;
+						if (Weights.IsValidIndex(Weights.Num() - 2))
+						{
+							LastWeight = Weights[Weights.Num() - 2];
+						}
+						WeightSum += CurrentSpawnableTiles[EachKey].SpawnWeight;
+						Weights.Emplace(CurrentSpawnableTiles[EachKey].SpawnWeight + LastWeight);
+					}
+
+					int ShapeIndex = 0;
+					float RandomSelector = FMath::RandRange(0.f, WeightSum);
+					for (int KeyIndex = 0; KeyIndex < Keys.Num(); KeyIndex++)
+					{
+						if (Weights[KeyIndex] >= RandomSelector)
+						{
+							ShapeIndex = Keys[KeyIndex];
+						}
+					}
+
+					CollapseSuperPosition(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.Find(ShapeIndex)->Num())]);
 				}
 				else
 				{
-					UE_LOG(LogTemp, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at socket index %i or regenerating the terrain"), SocketIndex);
+					UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
+					FVector2D ErrorLocation = ((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2);
+					DrawDebugPoint(GetWorld(), GetActorTransform().TransformPosition(FVector(ErrorLocation.X, 0, ErrorLocation.Y)), 50, FColor::Red, true);
+					return;
 				}
 			}
 		}
@@ -129,7 +163,7 @@ void ATerrainHandler::CollapseSuperPosition()
 
 void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex)
 {
-	UE_LOG(LogTemp, Warning, TEXT("\\/------------------------ %i, %i, %i ------------------------\\/"), SocketIndex, ShapeIndex, FaceIndex);
+	UE_LOG(LogTerrainTool, Log, TEXT("\\/------------------------ %i, %i, %i ------------------------\\/"), SocketIndex, ShapeIndex, FaceIndex);
 	if (SuperPositions.IsValidIndex(SocketIndex) && SuperPositions[SocketIndex].IsValidIndex(ShapeIndex) && SuperPositions[SocketIndex][ShapeIndex].IsValidIndex(FaceIndex) && SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
 	{
 		FTerrainShape NewShape;
@@ -157,7 +191,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 			//Spawn Sprite
 			FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), Angle), FVector(MergeResult.Transform.GetTranslation().X, 0, MergeResult.Transform.GetTranslation().Y));
 			UPaperSpriteComponent* NewSprite = NewObject<UPaperSpriteComponent>(this);
-			NewSprite->SetSprite(CurrentSprites[ShapeIndex]->Sprite);
+			NewSprite->SetSprite(CurrentSpawnableTiles[ShapeIndex].SpriteData->Sprite);
 			NewSprite->RegisterComponent();
 			NewSprite->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 			NewSprite->SetRelativeTransform(Transform);
@@ -187,9 +221,9 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 			SuperPositions = NewSuperPositions;
 			CurrentShape = NewShape;
 
-			UE_LOG(LogTemp, Warning, TEXT("%s"), *Debug1);
+			UE_LOG(LogTerrainTool, Log, TEXT("%s"), *Debug1);
 
-			UE_LOG(LogTemp, Warning, TEXT("-------------"));
+			UE_LOG(LogTerrainTool, Log, TEXT("-------------"));
 			int NumberOfPossibleCollapses = 0;
 			FIntVector CollapseIndex = FIntVector();
 			for (int Offset = 0; Offset < MergeResult.Growth + 2; Offset++)
@@ -235,7 +269,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 					}
 					Debug += "  |  ";
 				}
-				UE_LOG(LogTemp, Warning, TEXT("%s"), *Debug);
+				UE_LOG(LogTerrainTool, Log, TEXT("%s"), *Debug);
 			}
 
 			if (NumberOfPossibleCollapses == 1)
@@ -247,7 +281,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 			return;
 		}
 	}
-	UE_LOG(LogTemp, Error, TEXT("Failed"));
+	UE_LOG(LogTerrainTool, Error, TEXT("Failed"));
 }
 
 bool ATerrainHandler::HasNewCollapseableSuperPositions(FTerrainShape Shape, FTerrainShapeMergeResult MergeResult, int SearchDepth)

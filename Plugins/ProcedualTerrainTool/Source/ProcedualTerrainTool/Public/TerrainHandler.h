@@ -9,7 +9,32 @@
 #include "GameFramework/Actor.h"
 #include "TerrainHandler.generated.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogTerrainTool, Log, All);
+
 class UTerrainSpriteData;
+
+
+/**
+ * A socket storing data relevant for terrain piece connections.
+ */
+USTRUCT(BlueprintType)
+struct PROCEDUALTERRAINTOOL_API FTerrainTileData
+{
+	GENERATED_BODY()
+
+	//The sprite data of this tile.
+	UPROPERTY(EditAnywhere)
+	UTerrainSpriteData* SpriteData = nullptr;
+
+	//How likely this tile is to spawn.
+	UPROPERTY(EditAnywhere, Meta = (ClampMin = "0"))
+	float SpawnWeight = 1;
+
+	FTerrainTileData()
+	{
+
+	}
+};
 
 /**
  * 
@@ -26,7 +51,7 @@ public:
 	void LogTest();
 
 	UPROPERTY(EditAnywhere)
-	TArray<UTerrainSpriteData*> UseableSprites;
+	TArray<FTerrainTileData> SpawnableTiles;
 
 	UPROPERTY(EditAnywhere)
 	int CollapsePredictionDepth = 0;
@@ -41,7 +66,7 @@ public:
 	FIntVector CollapseCoords = FIntVector();
 
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
-	void RefreshUseableSpriteData();
+	void RefreshTileSet();
 
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
 	void ResetTerrain();
@@ -50,15 +75,15 @@ public:
 	void CollapseSuperPosition();
 	void CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex);
 
-	UPROPERTY(VisibleAnywhere, AdvancedDisplay)
-	FTerrainShape CurrentShape = FTerrainShape();
-
-	UPROPERTY(VisibleAnywhere, AdvancedDisplay)
-	TArray<FTerrainShape> SpriteShapes = TArray<FTerrainShape>();
-
 private:
 	UPROPERTY()
-	TArray<UTerrainSpriteData*> CurrentSprites = TArray<UTerrainSpriteData*>();
+	TArray<FTerrainTileData> CurrentSpawnableTiles = TArray<FTerrainTileData>();
+
+	UPROPERTY()
+	FTerrainShape CurrentShape = FTerrainShape();
+
+	UPROPERTY()
+	TArray<FTerrainShape> SpriteShapes = TArray<FTerrainShape>();
 
 	TArray<TArray<bool>> BaseSuperPositions = TArray<TArray<bool>>();
 
