@@ -63,16 +63,16 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 		FVector2D SF = (FirstVertex - SecondVertex).GetSafeNormal();
 		
 		FirstAngle = FMath::Acos(FP | FS);
-		//if ((FP ^ FS) < 0)
-		//{
-		//	FirstAngle = 2 * PI - FirstAngle;
-		//}
+		if ((FP ^ FS) > 0)
+		{
+			FirstAngle = TWO_PI - FirstAngle;
+		}
 
 		SecondAngle = FMath::Acos(SF | SN);
-		//if ((SF ^ SN) < 0)
-		//{
-		//	SecondAngle = 2 * PI - SecondAngle;
-		//}
+		if ((SF ^ SN) > 0)
+		{
+			SecondAngle = TWO_PI - SecondAngle;
+		}
 	}
 
 	/**
@@ -103,14 +103,13 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	 */
 	EConnectionResult CanConnectToSocket(FTerrainSocket Other) const
 	{
-		float Precision = KINDA_SMALL_NUMBER;
-		if (SocketIndex < 0 || SocketIndex != Other.SocketIndex || !FMath::IsNearlyEqual(Length, Other.Length, Precision) || SecondAngle + Other.FirstAngle > 2 * PI + Precision || FirstAngle + Other.SecondAngle > 2 * PI + Precision)
+		if (SocketIndex < 0 || SocketIndex != Other.SocketIndex || !FMath::IsNearlyEqual(Length, Other.Length, KINDA_SMALL_NUMBER) || SecondAngle + Other.FirstAngle > TWO_PI + KINDA_SMALL_NUMBER || FirstAngle + Other.SecondAngle > TWO_PI + KINDA_SMALL_NUMBER)
 		{
 			return EConnectionResult::No;
 		}
 
-		bool bCheckNext = FMath::IsNearlyEqual(SecondAngle + Other.FirstAngle, TWO_PI, Precision);
-		bool bCheckPrevious = FMath::IsNearlyEqual(FirstAngle + Other.SecondAngle, TWO_PI, Precision);
+		bool bCheckNext = FMath::IsNearlyEqual(SecondAngle + Other.FirstAngle, TWO_PI, KINDA_SMALL_NUMBER);
+		bool bCheckPrevious = FMath::IsNearlyEqual(FirstAngle + Other.SecondAngle, TWO_PI, KINDA_SMALL_NUMBER);
 
 		switch ((bCheckNext)+(2 * bCheckPrevious))
 		{

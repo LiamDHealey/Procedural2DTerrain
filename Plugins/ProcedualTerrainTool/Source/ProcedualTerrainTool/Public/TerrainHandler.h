@@ -50,13 +50,16 @@ public:
 	void CollapseSuperPosition();
 	void CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex);
 
-	//UPROPERTY(VisibleAnywhere, AdvancedDisplay)
+	UPROPERTY(VisibleAnywhere, AdvancedDisplay)
 	FTerrainShape CurrentShape = FTerrainShape();
 
-	//UPROPERTY(VisibleAnywhere, AdvancedDisplay)
+	UPROPERTY(VisibleAnywhere, AdvancedDisplay)
 	TArray<FTerrainShape> SpriteShapes = TArray<FTerrainShape>();
 
 private:
+	UPROPERTY()
+	TArray<UTerrainSpriteData*> CurrentSprites = TArray<UTerrainSpriteData*>();
+
 	TArray<TArray<bool>> BaseSuperPositions = TArray<TArray<bool>>();
 
 	TArray<TArray<TArray<bool>>> SuperPositions = TArray<TArray<TArray<bool>>>();

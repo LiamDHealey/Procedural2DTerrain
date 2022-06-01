@@ -43,6 +43,7 @@ void ATerrainHandler::RefreshUseableSpriteData()
 {
 	SpriteShapes.Empty();
 	BaseSuperPositions.Empty();
+	CurrentSprites = UseableSprites;
 
 	for (UTerrainSpriteData* EachUseableSprite : UseableSprites)
 	{
@@ -156,7 +157,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 			//Spawn Sprite
 			FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), Angle), FVector(MergeResult.Transform.GetTranslation().X, 0, MergeResult.Transform.GetTranslation().Y));
 			UPaperSpriteComponent* NewSprite = NewObject<UPaperSpriteComponent>(this);
-			NewSprite->SetSprite(UseableSprites[ShapeIndex]->Sprite);
+			NewSprite->SetSprite(CurrentSprites[ShapeIndex]->Sprite);
 			NewSprite->RegisterComponent();
 			NewSprite->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
 			NewSprite->SetRelativeTransform(Transform);
