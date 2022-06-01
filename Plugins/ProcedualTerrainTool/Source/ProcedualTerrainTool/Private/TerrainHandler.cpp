@@ -140,10 +140,11 @@ void ATerrainHandler::CollapseSuperPosition()
 						if (Weights[KeyIndex] >= RandomSelector)
 						{
 							ShapeIndex = Keys[KeyIndex];
+							break;
 						}
 					}
 
-					CollapseSuperPosition(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.Find(ShapeIndex)->Num())]);
+					CollapseSuperPosition(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
 				}
 				else
 				{
