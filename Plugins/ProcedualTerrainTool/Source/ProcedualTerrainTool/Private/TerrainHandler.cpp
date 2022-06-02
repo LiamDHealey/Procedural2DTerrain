@@ -2,6 +2,7 @@
 
 #include "TerrainHandler.h"
 
+#include "ProcedualCollapseMode.h"
 #include "DrawDebugHelpers.h"
 #include "PaperSpriteComponent.h"
 #include "TerrainSpriteData.h"
@@ -61,6 +62,7 @@ void ATerrainHandler::RefreshTileSet()
 
 void ATerrainHandler::ResetTerrain()
 {
+	FlushPersistentDebugLines(GetWorld());
 	CurrentShape = FTerrainShape();
 
 	SuperPositions.SetNum(1);
@@ -78,87 +80,19 @@ void ATerrainHandler::ResetTerrain()
 
 void ATerrainHandler::CollapseSuperPosition()
 {
-	if (bRandomColapse)
+	if (IsValid(CollapseMode))
 	{
-		for (int CollapseIndex = 0; CollapseIndex < NumberOfCollapses; CollapseIndex++)
+		bool bAnotherCollapseNesseary = true;
+		while (bAnotherCollapseNesseary)
 		{
-			if (!SuperPositions.IsEmpty())
-			{
-				//Get Closet Socket To Origin
-				int SocketIndex = 0;
-				if (!CurrentShape.ShapeSockets.IsEmpty())
-				{
-					float ClosestDistanceSquared = ((CurrentShape.Vertices[0] + CurrentShape.Vertices[1]) / 2).SquaredLength();
-					for (int SearchIndex = 1; SearchIndex < CurrentShape.Num(); SearchIndex++)
-					{
-						float SeachDistanceSquared = ((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2).SquaredLength();
-						if (SeachDistanceSquared < ClosestDistanceSquared)
-						{
-							ClosestDistanceSquared = SeachDistanceSquared;
-							SocketIndex = SearchIndex;
-						}
-					}
-				}
-
-				TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
-				for (int ShapeIndex = 0; ShapeIndex < SpriteShapes.Num(); ShapeIndex++)
-				{
-					for (int FaceIndex = 0; FaceIndex < SpriteShapes[ShapeIndex].Num(); FaceIndex++)
-					{
-						if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
-						{
-							if (!PossibleCollapses.Contains(ShapeIndex))
-							{
-								PossibleCollapses.Emplace(ShapeIndex, TArray<int>());
-							}
-
-							PossibleCollapses.Find(ShapeIndex)->Emplace(FaceIndex);
-						}
-					}
-				}
-				if (!PossibleCollapses.IsEmpty())
-				{
-					TArray<int> Keys;
-					PossibleCollapses.GenerateKeyArray(Keys);
-					TArray<float> Weights = TArray<float>();
-					float WeightSum = 0;
-					for (int EachKey : Keys)
-					{
-						float LastWeight = 0;
-						if (Weights.IsValidIndex(Weights.Num() - 2))
-						{
-							LastWeight = Weights[Weights.Num() - 2];
-						}
-						WeightSum += CurrentSpawnableTiles[EachKey].SpawnWeight;
-						Weights.Emplace(CurrentSpawnableTiles[EachKey].SpawnWeight + LastWeight);
-					}
-
-					int ShapeIndex = 0;
-					float RandomSelector = FMath::RandRange(0.f, WeightSum);
-					for (int KeyIndex = 0; KeyIndex < Keys.Num(); KeyIndex++)
-					{
-						if (Weights[KeyIndex] >= RandomSelector)
-						{
-							ShapeIndex = Keys[KeyIndex];
-							break;
-						}
-					}
-
-					CollapseSuperPosition(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
-				}
-				else
-				{
-					UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
-					FVector2D ErrorLocation = ((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2);
-					DrawDebugPoint(GetWorld(), GetActorTransform().TransformPosition(FVector(ErrorLocation.X, 0, ErrorLocation.Y)), 50, FColor::Red, true);
-					return;
-				}
-			}
+			FIntVector CollapseIndex;
+			bAnotherCollapseNesseary = CollapseMode->GetSuperPositionsToCollapse(CollapseIndex, CurrentShape, SuperPositions, CurrentSpawnableTiles, GetActorTransform());
+			CollapseSuperPosition(CollapseIndex.X, CollapseIndex.Y, CollapseIndex.Z);
 		}
 	}
 	else
 	{
-		CollapseSuperPosition(CollapseCoords.X, CollapseCoords.Y, CollapseCoords.Z);
+		UE_LOG(LogTerrainTool, Error, TEXT("Select a Collapse Mode"));
 	}
 }
 
@@ -203,34 +137,34 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 			//Propagate New Super Positions
 			TArray<TArray<TArray<bool>>> NewSuperPositions = TArray<TArray<TArray<bool>>>();
 			NewSuperPositions.SetNum(NewShape.Num());
-			FString Debug1 = FString();
+			//FString Debug1 = FString();
 
 			for (int Index = 0; Index < NewSuperPositions.Num(); Index++)
 			{
-				Debug1 += FString::FromInt(Index) + "<-";
+				//Debug1 += FString::FromInt(Index) + "<-";
 				if (Index < SuperPositions.Num() - MergeResult.Shrinkage)
 				{
-					Debug1 += FString::FromInt(UPTTMath::Mod(Index - MergeResult.Offset, SuperPositions.Num())) + ", ";
+					//Debug1 += FString::FromInt(UPTTMath::Mod(Index - MergeResult.Offset, SuperPositions.Num())) + ", ";
 					NewSuperPositions[Index] = SuperPositions[UPTTMath::Mod(Index - MergeResult.Offset, SuperPositions.Num())];
 				}
 				else
 				{
-					Debug1 += "B, ";
+					//Debug1 += "B, ";
 					NewSuperPositions[Index] = BaseSuperPositions;
 				}
 			}
 			SuperPositions = NewSuperPositions;
 			CurrentShape = NewShape;
 
-			UE_LOG(LogTerrainTool, Log, TEXT("%s"), *Debug1);
+			//UE_LOG(LogTerrainTool, Log, TEXT("%s"), *Debug1);
 
-			UE_LOG(LogTerrainTool, Log, TEXT("-------------"));
+			//UE_LOG(LogTerrainTool, Log, TEXT("-------------"));
 			int NumberOfPossibleCollapses = 0;
 			FIntVector CollapseIndex = FIntVector();
 			for (int Offset = 0; Offset < MergeResult.Growth + 2; Offset++)
 			{
-				FString Debug = FString();
-				Debug += FString::FromInt(UPTTMath::Mod(CurrentShape.Num() - 1 - MergeResult.Growth + Offset, CurrentShape.Num())) + "\t|  ";
+				//FString Debug = FString();
+				//Debug += FString::FromInt(UPTTMath::Mod(CurrentShape.Num() - 1 - MergeResult.Growth + Offset, CurrentShape.Num())) + "\t|  ";
 				int CollapseSocketIndex = UPTTMath::Mod(CurrentShape.Num() - 1 - MergeResult.Growth + Offset, CurrentShape.Num());
 				for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
 				{
@@ -242,35 +176,35 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 							FTerrainShapeMergeResult CollapsedShapeMergeResult;
 							if (CurrentShape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, SpriteShapes[CollapseShapeIndex], CollapseFaceIndex))
 							{
-								Debug += "C";
+								//Debug += "C";
 								bool bCanCollapse = HasNewCollapseableSuperPositions(CollapsedShape, CollapsedShapeMergeResult, CollapsePredictionDepth);
 								SuperPositions[CollapseSocketIndex][CollapseShapeIndex][CollapseFaceIndex] = bCanCollapse;
 								if (bCanCollapse)
 								{
-									Debug += "T";
+									//Debug += "T";
 									NumberOfPossibleCollapses++;
 									CollapseIndex = FIntVector(CollapseSocketIndex, CollapseShapeIndex, CollapseFaceIndex);
 								}
 								else
 								{
-									Debug += "F";
+									//Debug += "F";
 								}
 							}
 							else
 							{
-								Debug += " F";
+								//Debug += " F";
 								SuperPositions[CollapseSocketIndex][CollapseShapeIndex][CollapseFaceIndex] = false;
 							}
 						}
 						else
 						{
-							Debug += "  ";
+							//Debug += "  ";
 						}
-						Debug += ", ";
+						//Debug += ", ";
 					}
-					Debug += "  |  ";
+					//Debug += "  |  ";
 				}
-				UE_LOG(LogTerrainTool, Log, TEXT("%s"), *Debug);
+				//UE_LOG(LogTerrainTool, Log, TEXT("%s"), *Debug);
 			}
 
 			if (NumberOfPossibleCollapses == 1)

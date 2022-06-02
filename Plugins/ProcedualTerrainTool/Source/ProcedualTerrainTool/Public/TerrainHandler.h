@@ -12,7 +12,7 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogTerrainTool, Log, All);
 
 class UTerrainSpriteData;
-
+class UProcedualCollapseMode;
 
 /**
  * A socket storing data relevant for terrain piece connections.
@@ -56,14 +56,8 @@ public:
 	UPROPERTY(EditAnywhere)
 	int CollapsePredictionDepth = 0;
 
-	UPROPERTY(EditAnywhere)
-	bool bRandomColapse = false;
-
-	UPROPERTY(EditAnywhere, Meta = (EditCondition = "bRandomColapse", ClampMin = "1"))
-	int NumberOfCollapses = 1;
-
-	UPROPERTY(EditAnywhere, Meta=(EditCondition = "!bRandomColapse"))
-	FIntVector CollapseCoords = FIntVector();
+	UPROPERTY(EditAnywhere, Instanced)
+	UProcedualCollapseMode* CollapseMode = nullptr;
 
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
 	void RefreshTileSet();
