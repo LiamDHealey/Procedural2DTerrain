@@ -41,10 +41,13 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
  */
 bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles, FTransform TerrainTransform) const
 {
+	//Draw boundary
 	FlushPersistentDebugLines(GetWorld());
-	DrawDebugCircle(GetWorld(), TerrainTransform.GetTranslation(), Radius, 32, FColor::Cyan, false, 10, 0U, 50, TerrainTransform.GetRotation().GetForwardVector(), TerrainTransform.GetRotation().GetUpVector(), false);
+	DrawDebugCircle(GetWorld(), TerrainTransform.GetTranslation(), Radius, 32, FColor::Black, false, 10, 0U, 50, TerrainTransform.GetRotation().GetForwardVector(), TerrainTransform.GetRotation().GetUpVector(), false);
+
 	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
 	{
+		//Get socket closest to center
 		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
 		int SocketIndex = 0;
 
@@ -55,6 +58,111 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 			if (SeachDistanceSquared < ClosestDistanceSquared)
 			{
 				ClosestDistanceSquared = SeachDistanceSquared;
+				SocketIndex = SearchIndex;
+			}
+		}
+
+		//Get possible collapses around selected socket
+		for (int ShapeIndex = 0; ShapeIndex < SuperPositions[SocketIndex].Num(); ShapeIndex++)
+		{
+			for (int FaceIndex = 0; FaceIndex < SuperPositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
+			{
+				if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
+				{
+					if (!PossibleCollapses.Contains(ShapeIndex))
+					{
+						PossibleCollapses.Emplace(ShapeIndex, TArray<int>());
+					}
+
+					PossibleCollapses.Find(ShapeIndex)->Emplace(FaceIndex);
+				}
+			}
+		}
+
+		//End if no valid collapses
+		if (PossibleCollapses.IsEmpty())
+		{
+			FVector2D ErrorLocation = ((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2);
+			DrawDebugPoint(GetWorld(), TerrainTransform.TransformPosition(FVector(ErrorLocation.X, 0, ErrorLocation.Y)), 50, FColor::Red, true);
+			SuperPositionIndex = FIntVector(0, 0, 0);
+			return false;
+		}
+
+		//Get shape index weighted
+		TArray<int> Keys;
+		PossibleCollapses.GenerateKeyArray(Keys);
+		TArray<float> Weights = TArray<float>();
+		float WeightSum = 0;
+		for (int EachKey : Keys)
+		{
+			float LastWeight = 0;
+			if (Weights.IsValidIndex(Weights.Num() - 1))
+			{
+				LastWeight = Weights[Weights.Num() - 1];
+			}
+			WeightSum += SpawnableTiles[EachKey].SpawnWeight;
+			Weights.Emplace(SpawnableTiles[EachKey].SpawnWeight + LastWeight);
+		}
+
+		int ShapeIndex = 0;
+		float RandomSelector = FMath::RandRange(0.f, WeightSum);
+		for (int KeyIndex = 0; KeyIndex < Keys.Num(); KeyIndex++)
+		{
+			if (Weights[KeyIndex] >= RandomSelector)
+			{
+				ShapeIndex = Keys[KeyIndex];
+				break;
+			}
+		}
+
+		//Collapse superposition
+		if (ensure(!PossibleCollapses.IsEmpty() && !PossibleCollapses.FindRef(ShapeIndex).IsEmpty()))
+		{
+			SuperPositionIndex = FIntVector(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
+			return ClosestDistanceSquared < Radius* Radius;
+		}
+
+		//Fail for memory loss
+		SuperPositionIndex = FIntVector(0, 0, 0);
+		return false;
+	}
+	//Fail for invalid shapes
+	UE_LOG(LogTerrainTool, Error, TEXT("Invalid shape consider refreshing tile data"));
+	SuperPositionIndex = FIntVector(0,0,0);
+	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
+}
+
+/**
+ * Gets the next super position to collapse on the given shape. Will all superpositions within a box with the given extent.
+ *
+ * @param SuperPositionIndex - Set to the indices of the super position to collapse next.
+ * @param CurrentShape - The current shape of the terrain.
+ * @param SuperPositions - The current superposition states of the terrain.
+ * @param SpawnableTiles - The tiles that can be spawned.
+ * @return Whether or not another collapse is needed.
+ */
+bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles, FTransform TerrainTransform) const
+{
+	//Draw bounds
+	FlushPersistentDebugLines(GetWorld());
+	DrawDebugBox(GetWorld(), TerrainTransform.GetTranslation(), FVector(Extent.X, 0, Extent.Y), TerrainTransform.GetRotation(), FColor::Black, false, 10, 0U, 50);
+
+	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
+	{
+		//Find left most point in extent.
+		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
+		int SocketIndex = 0;
+		float LeastXValue = MAX_FLT;
+		bool bValidSocketFound = false;
+
+		for (int SearchIndex = 0; SearchIndex < CurrentShape.Num(); SearchIndex++)
+		{
+			FVector2D SocketLocation = ((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2).GetAbs();
+			if (SocketLocation.X < LeastXValue && ((SocketLocation.X < abs(Extent.X)) && (SocketLocation.Y < abs(Extent.Y))))
+			{
+				UE_LOG(LogTerrainTool, Warning, TEXT("loc = %s"), *SocketLocation.ToString());
+				bValidSocketFound = true;
+				LeastXValue = SocketLocation.X;
 				SocketIndex = SearchIndex;
 			}
 		}
@@ -107,23 +215,23 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 		for (int KeyIndex = 0; KeyIndex < Keys.Num(); KeyIndex++)
 		{
 			UE_LOG(LogTerrainTool, Warning, TEXT("Weights[%i] = %f, RandomSelector = %f, sum = %f"), KeyIndex, Weights[KeyIndex], RandomSelector, WeightSum)
-			if (Weights[KeyIndex] >= RandomSelector)
-			{
-				ShapeIndex = Keys[KeyIndex];
-				break;
-			}
+				if (Weights[KeyIndex] >= RandomSelector)
+				{
+					ShapeIndex = Keys[KeyIndex];
+					break;
+				}
 		}
 
 		//Collapse superposition
 		if (ensure(!PossibleCollapses.IsEmpty() && !PossibleCollapses.FindRef(ShapeIndex).IsEmpty()))
 		{
 			SuperPositionIndex = FIntVector(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
-			return ClosestDistanceSquared < Radius* Radius;
+			return bValidSocketFound;
 		}
 		SuperPositionIndex = FIntVector(0, 0, 0);
 		return false;
 	}
 	UE_LOG(LogTerrainTool, Error, TEXT("Invalid shape consider refreshing tile data"));
-	SuperPositionIndex = FIntVector(0,0,0);
+	SuperPositionIndex = FIntVector(0, 0, 0);
 	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
 }
