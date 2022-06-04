@@ -3,7 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "PaperSprite.h"
+
+
 
 #include "Engine/DataAsset.h"
 #include "TerrainSpriteData.generated.h"
@@ -17,7 +18,7 @@ class PROCEDUALTERRAINTOOL_API UTerrainSpriteData : public UDataAsset
 	
 public:
 	UPROPERTY(EditAnywhere)
-	UPaperSprite* Sprite;
+	TSubclassOf<AActor> ActorClass;
 
 	UPROPERTY(EditAnywhere)
 	TArray<FVector2D> Verticies;

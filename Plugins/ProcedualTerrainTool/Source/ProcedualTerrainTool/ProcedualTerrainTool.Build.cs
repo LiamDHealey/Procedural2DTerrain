@@ -44,8 +44,7 @@ public class ProcedualTerrainTool : ModuleRules
 				"UnrealEd",
 				"LevelEditor",
 				"InteractiveToolsFramework",
-				"EditorInteractiveToolsFramework",
-				"Paper2D"
+				"EditorInteractiveToolsFramework"
 				// ... add private dependencies that you statically link with here ...	
 			}
 			);

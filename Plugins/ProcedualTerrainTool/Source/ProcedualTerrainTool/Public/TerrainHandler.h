@@ -66,6 +66,9 @@ public:
 	void ResetTerrain();
 
 	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
+	void DetachTerrain();
+
+	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
 	void CollapseSuperPosition();
 	void CollapseSuperPosition(int SocketIndex, int ShapeIndex, int FaceIndex);
 
@@ -78,6 +81,9 @@ private:
 
 	UPROPERTY()
 	TArray<FTerrainShape> SpriteShapes = TArray<FTerrainShape>();
+
+	UPROPERTY()
+	TSet<AActor*> TerrainActors = TSet<AActor*>();
 
 	TArray<TArray<bool>> BaseSuperPositions = TArray<TArray<bool>>();
 

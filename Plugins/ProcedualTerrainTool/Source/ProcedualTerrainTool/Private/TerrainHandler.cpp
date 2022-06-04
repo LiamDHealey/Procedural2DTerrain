@@ -4,7 +4,7 @@
 
 #include "ProcedualCollapseMode.h"
 #include "DrawDebugHelpers.h"
-#include "PaperSpriteComponent.h"
+
 #include "TerrainSpriteData.h"
 
 DEFINE_LOG_CATEGORY(LogTerrainTool);
@@ -12,6 +12,7 @@ DEFINE_LOG_CATEGORY(LogTerrainTool);
 ATerrainHandler::ATerrainHandler()
 {
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
+	RootComponent->SetMobility(EComponentMobility::Static);
 }
 
 void ATerrainHandler::LogTest()
@@ -68,14 +69,21 @@ void ATerrainHandler::ResetTerrain()
 	SuperPositions.SetNum(1);
 	SuperPositions[0] = BaseSuperPositions;	
 
-	TSet<UActorComponent*> Components = GetComponents();
-	for (UActorComponent* EachComponent : Components)
+	for (AActor* EachTerrainActor : TerrainActors)
 	{
-		if (EachComponent != RootComponent)
-		{
-			EachComponent->DestroyComponent();
-		}
+		EachTerrainActor->Destroy();
 	}
+	TerrainActors.Empty();
+}
+
+void ATerrainHandler::DetachTerrain()
+{
+	for (AActor* EachTerrainActor : TerrainActors)
+	{
+		EachTerrainActor->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	}
+	TerrainActors.Empty();
+	ResetTerrain();
 }
 
 void ATerrainHandler::CollapseSuperPosition()
@@ -106,31 +114,32 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 
 		if (ensureAlwaysMsgf(CurrentShape.MergeShape(NewShape, MergeResult, SocketIndex, SpriteShapes[ShapeIndex], FaceIndex), TEXT("Super Position Array False")))
 		{
-			//Calculate Sprite Rotation
-			float A;
-			float B;
-			float C;
-			float D;
-			MergeResult.Transform.GetMatrix().GetMatrix(A, B, C, D);
-			if (FMath::IsNearlyZero(A))
+			if (IsValid(CurrentSpawnableTiles[ShapeIndex].SpriteData->ActorClass.Get()))
 			{
-				A = SMALL_NUMBER;
+				//Calculate Actor Rotation
+				float A;
+				float B;
+				float C;
+				float D;
+				MergeResult.Transform.GetMatrix().GetMatrix(A, B, C, D);
+				if (FMath::IsNearlyZero(A))
+				{
+					A = SMALL_NUMBER;
+				}
+
+				float Angle = FMath::Atan(B / A);
+				if (A < 0)
+				{
+					Angle = PI + Angle;
+				}
+
+				//Spawn Actor
+				FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), Angle), FVector(MergeResult.Transform.GetTranslation().X, 0, MergeResult.Transform.GetTranslation().Y));
+				AActor* NewTerrainActor = GetWorld()->SpawnActor<AActor>(CurrentSpawnableTiles[ShapeIndex].SpriteData->ActorClass.Get(), Transform);
+				NewTerrainActor->SetActorTransform(Transform);
+				NewTerrainActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+				TerrainActors.Add(NewTerrainActor);
 			}
-
-			float Angle = FMath::Atan(B / A);
-			if (A < 0)
-			{
-				Angle = PI + Angle;
-			}
-
-			//Spawn Sprite
-			FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), Angle), FVector(MergeResult.Transform.GetTranslation().X, 0, MergeResult.Transform.GetTranslation().Y));
-			UPaperSpriteComponent* NewSprite = NewObject<UPaperSpriteComponent>(this);
-			NewSprite->SetSprite(CurrentSpawnableTiles[ShapeIndex].SpriteData->Sprite);
-			NewSprite->RegisterComponent();
-			NewSprite->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepWorldTransform);
-			NewSprite->SetRelativeTransform(Transform);
-
 
 			// \/ Refresh Super Positions \/ //
 
