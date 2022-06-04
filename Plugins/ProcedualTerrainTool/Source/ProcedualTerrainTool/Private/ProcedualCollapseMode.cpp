@@ -43,7 +43,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 {
 	//Draw boundary
 	FlushPersistentDebugLines(GetWorld());
-	DrawDebugCircle(GetWorld(), TerrainTransform.GetTranslation(), Radius, 32, FColor::Black, false, 10, 0U, 50, TerrainTransform.GetRotation().GetForwardVector(), TerrainTransform.GetRotation().GetUpVector(), false);
+	DrawDebugCircle(GetWorld(), TerrainTransform.GetTranslation(), Radius, 32, FColor::Magenta, false, 10, 0U, 50, TerrainTransform.GetRotation().GetForwardVector(), TerrainTransform.GetRotation().GetRightVector(), false);
 
 	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
 	{
@@ -83,7 +83,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 		if (PossibleCollapses.IsEmpty())
 		{
 			FVector2D ErrorLocation = ((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2);
-			DrawDebugPoint(GetWorld(), TerrainTransform.TransformPosition(FVector(ErrorLocation.X, 0, ErrorLocation.Y)), 50, FColor::Red, true);
+			DrawDebugPoint(GetWorld(), TerrainTransform.TransformPosition(FVector(ErrorLocation, 0)), 50, FColor::Red, true);
 			SuperPositionIndex = FIntVector(0, 0, 0);
 			return false;
 		}
@@ -145,7 +145,7 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 {
 	//Draw bounds
 	FlushPersistentDebugLines(GetWorld());
-	DrawDebugBox(GetWorld(), TerrainTransform.GetTranslation(), FVector(Extent.X, 0, Extent.Y), TerrainTransform.GetRotation(), FColor::Black, false, 10, 0U, 50);
+	DrawDebugBox(GetWorld(), TerrainTransform.GetTranslation(), FVector(Extent, 0), TerrainTransform.GetRotation(), FColor::Magenta, false, 10, 0U, 50);
 
 	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
 	{
@@ -188,7 +188,7 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 		{
 			UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
 			FVector2D ErrorLocation = ((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2);
-			DrawDebugPoint(GetWorld(), TerrainTransform.TransformPosition(FVector(ErrorLocation.X, 0, ErrorLocation.Y)), 50, FColor::Red, true);
+			DrawDebugPoint(GetWorld(), TerrainTransform.TransformPosition(FVector(ErrorLocation, 0)), 50, FColor::Red, true);
 			SuperPositionIndex = FIntVector(0, 0, 0);
 			return false;
 		}

@@ -21,8 +21,8 @@ void ATerrainHandler::LogTest()
 	for (int i = 0; i < CurrentShape.Num(); i++)
 	{
 		FVector Offset = FMath::RandPointInBox(FBox(FVector(-5, -5, -5), FVector(5, 5, 5)));
-		FVector LineStart = GetActorTransform().TransformPosition(FVector(CurrentShape.Vertices[i].X, 0, CurrentShape.Vertices[i].Y));
-		FVector LineEnd = GetActorTransform().TransformPosition(FVector(CurrentShape.Vertices[(i + 1) % CurrentShape.Num()].X, 0, CurrentShape.Vertices[(i + 1) % CurrentShape.Num()].Y));
+		FVector LineStart = GetActorTransform().TransformPosition(FVector(CurrentShape.Vertices[i], 0));
+		FVector LineEnd = GetActorTransform().TransformPosition(FVector(CurrentShape.Vertices[(i + 1) % CurrentShape.Num()], 0));
 		FColor Color = FColor::MakeRandomColor();
 
 		DrawDebugLine(GetWorld(), LineStart, LineEnd, Color, true, 100, 0U, 5);
@@ -134,7 +134,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 				}
 
 				//Spawn Actor
-				FTransform Transform = FTransform(FQuat(FVector(0, -1, 0), Angle), FVector(MergeResult.Transform.GetTranslation().X, 0, MergeResult.Transform.GetTranslation().Y));
+				FTransform Transform = FTransform(FQuat(FVector(0, 0, 1), Angle), FVector(MergeResult.Transform.GetTranslation(), 0));
 				AActor* NewTerrainActor = GetWorld()->SpawnActor<AActor>(CurrentSpawnableTiles[ShapeIndex].SpriteData->ActorClass.Get(), Transform);
 				NewTerrainActor->SetActorTransform(Transform);
 				NewTerrainActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
