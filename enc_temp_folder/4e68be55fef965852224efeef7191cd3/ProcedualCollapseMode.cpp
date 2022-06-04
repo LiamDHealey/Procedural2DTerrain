@@ -160,6 +160,7 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 			FVector2D SocketLocation = ((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2).GetAbs();
 			if (SocketLocation.X < LeastXValue && ((SocketLocation.X < abs(Extent.X)) && (SocketLocation.Y < abs(Extent.Y))))
 			{
+				UE_LOG(LogTerrainTool, Warning, TEXT("loc = %s"), *SocketLocation.ToString());
 				bValidSocketFound = true;
 				LeastXValue = SocketLocation.X;
 				SocketIndex = SearchIndex;
@@ -213,11 +214,12 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 		float RandomSelector = FMath::RandRange(0.f, WeightSum);
 		for (int KeyIndex = 0; KeyIndex < Keys.Num(); KeyIndex++)
 		{
-			if (Weights[KeyIndex] >= RandomSelector)
-			{
-				ShapeIndex = Keys[KeyIndex];
-				break;
-			}
+			UE_LOG(LogTerrainTool, Warning, TEXT("Weights[%i] = %f, RandomSelector = %f, sum = %f"), KeyIndex, Weights[KeyIndex], RandomSelector, WeightSum)
+				if (Weights[KeyIndex] >= RandomSelector)
+				{
+					ShapeIndex = Keys[KeyIndex];
+					break;
+				}
 		}
 
 		//Collapse superposition

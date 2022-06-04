@@ -216,7 +216,7 @@ void ATerrainHandler::CollapseSuperPosition(int SocketIndex, int ShapeIndex, int
 			return;
 		}
 	}
-	UE_LOG(LogTerrainTool, Error, TEXT("Collapse Failed"));
+	UE_LOG(LogTerrainTool, Error, TEXT("Failed"));
 }
 
 bool ATerrainHandler::HasNewCollapseableSuperPositions(FTerrainShape Shape, FTerrainShapeMergeResult MergeResult, int SearchDepth)
