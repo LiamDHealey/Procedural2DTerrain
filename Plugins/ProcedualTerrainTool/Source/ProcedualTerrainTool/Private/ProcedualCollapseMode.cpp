@@ -11,7 +11,7 @@
  * @param SuperPositions - The current superposition states of the terrain.
  * @return Whether or not another collapse is needed.
  */
-bool UProcedualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles) const
+bool UProcedualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
 {
 	SuperPositionIndex = FIntVector();
 	return false;
@@ -25,7 +25,7 @@ bool UProcedualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositi
  * @param SuperPositions - The current superposition states of the terrain.
  * @return Whether or not another collapse is needed.
  */
-bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles) const
+bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
 {
 	SuperPositionIndex = CollapseCoords;
 	return false;
@@ -39,7 +39,7 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
  * @param SuperPositions - The current superposition states of the terrain.
  * @return Whether or not another collapse is needed.
  */
-bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles) const
+bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
 {
 	//Draw boundary
 	//FlushPersistentDebugLines(GetWorld());
@@ -141,7 +141,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles) const
+bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
 {
 	//Draw bounds
 	FlushPersistentDebugLines(GetWorld());

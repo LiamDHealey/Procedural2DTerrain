@@ -65,7 +65,6 @@ void ATerrainHandler::CollapseSuperPosition()
 		}
 		
 
-
 		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainHandler::RefreshTiles, 1, true);
 	}
 	else
@@ -76,7 +75,7 @@ void ATerrainHandler::CollapseSuperPosition()
 
 void ATerrainHandler::SpawnTile(int ShapeIndex, FTerrainShapeMergeResult MergeResult)
 {
-	if (IsValid(CurrentSpawnableTiles[ShapeIndex].SpriteData->ActorClass.Get()))
+	if (IsValid(SpawnableTiles[ShapeIndex].TileData->ActorClass.Get()))
 	{
 		//Calculate Actor Rotation
 		float A;
@@ -97,10 +96,10 @@ void ATerrainHandler::SpawnTile(int ShapeIndex, FTerrainShapeMergeResult MergeRe
 
 		//Spawn Actor
 		FTransform Transform = FTransform(FQuat(FVector(0, 0, 1), Angle), FVector(MergeResult.Transform.GetTranslation(), 0));
-		AActor* NewTerrainActor = GetWorld()->SpawnActor<AActor>(CurrentSpawnableTiles[ShapeIndex].SpriteData->ActorClass.Get(), Transform);
+		AActor* NewTerrainActor = GetWorld()->SpawnActor<AActor>(SpawnableTiles[ShapeIndex].TileData->ActorClass.Get(), Transform);
 		NewTerrainActor->SetActorTransform(Transform);
 		NewTerrainActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-		TerrainActors.Add(NewTerrainActor);
+		TileActors.Add(NewTerrainActor);
 	}
 }
 
@@ -131,7 +130,7 @@ bool FTerrainGenerationWorker::IsTerrainFinishedGenerating()
  * @param Mode - The method used for deciding which superposition to collapse next.
  * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
  */
-bool FTerrainGenerationWorker::MatchData(TArray<FTerrainTileData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0)
+bool FTerrainGenerationWorker::MatchData(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth)
 {
 	if (Tiles != UseableTiles)
 	{
@@ -160,11 +159,11 @@ void FTerrainGenerationWorker::Shutdown()
  * @param Mode - The method used for deciding which superposition to collapse next.
  * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
  */
-FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0) : 
-	UseableTiles(Tiles), 
-	CollapseMode(Mode), 
-	CollapsePredictionDepth(PredictionDepth), 
-	bCompleated(false)
+FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth) :
+	bCompleated(false),
+	CollapseMode(Mode),
+	CollapsePredictionDepth(PredictionDepth),
+	UseableTiles(Tiles)
 { 
 	//Create thread.
 	Thread = FRunnableThread::Create(this, TEXT("FTerrainGenerationWorker"), 0, TPri_BelowNormal);
@@ -173,7 +172,7 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileData> Tile
 	TileShapes.Empty();
 	BaseSuperPositions.Empty();
 
-	for (FTerrainTileData EachUseableTile : UseableTiles)
+	for (FTerrainTileSpawnData EachUseableTile : UseableTiles)
 	{
 		TileShapes.Emplace(FTerrainShape(EachUseableTile.TileData->Verticies, EachUseableTile.TileData->FaceIndices));
 
@@ -253,7 +252,7 @@ bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
 
 		if (ensureAlwaysMsgf(Shape.MergeShape(NewShape, MergeResult, SocketIndex, TileShapes[ShapeIndex], FaceIndex), TEXT("Super Position Array False")))
 		{
-
+			TerrainTiles.Emplace(FTerrainTileInstanceData(ShapeIndex, MergeResult));
 
 			// \/ Refresh Super Positions \/ //
 
@@ -346,22 +345,22 @@ bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
 /**
  * Whether or not there is an available super position to collapse after the given merge.
  *
- * @param Shape - The shape to query.
+ * @param NewShape - The shape to query.
  * @param MergeResult - The result of the merge that most recently happened.
  * @param SeachDeapth - How many iterations into the future to search.
  */
-bool FTerrainGenerationWorker::HasNewCollapseableSuperPositions(FTerrainShape Shape, FTerrainShapeMergeResult MergeResult, int SearchDepth) const
+bool FTerrainGenerationWorker::HasNewCollapseableSuperPositions(FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult, int SearchDepth) const
 {
 	for (int Offset = 0; Offset < MergeResult.Growth + 2; Offset++)
 	{
-		int CollapseSocketIndex = UPTTMath::Mod(Shape.Num() - 1 - MergeResult.Growth + Offset, Shape.Num());
+		int CollapseSocketIndex = UPTTMath::Mod(NewShape.Num() - 1 - MergeResult.Growth + Offset, NewShape.Num());
 		for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
 		{
 			for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperPositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)
 			{
 				FTerrainShape CollapsedShape;
 				FTerrainShapeMergeResult CollapsedShapeMergeResult;
-				if (Shape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, SpriteShapes[CollapseShapeIndex], CollapseFaceIndex))
+				if (NewShape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex))
 				{
 					if (SearchDepth == 0 || HasNewCollapseableSuperPositions(CollapsedShape, CollapsedShapeMergeResult, SearchDepth - 1))
 					{

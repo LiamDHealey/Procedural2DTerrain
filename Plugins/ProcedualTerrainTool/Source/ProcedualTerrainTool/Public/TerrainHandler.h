@@ -17,15 +17,15 @@ class UProcedualCollapseMode;
 
 
 
-/* \/ ====================== \/ *\
-|  \/ FTerrainTileSpawnData  \/  |
-\* \/ ====================== \/ */
+/* \/ ========================= \/ *\
+|  \/ FTerrainTileInstanceData  \/  |
+\* \/ ========================= \/ */
 
 /**
- * Information about a terrain tile and its spawning.
+ * Information about a terrain tile and location.
  */
 USTRUCT(BlueprintType)
-struct PROCEDUALTERRAINTOOL_API FTerrainTileSpawnData
+struct PROCEDUALTERRAINTOOL_API FTerrainTileInstanceData
 {
 	GENERATED_BODY()
 
@@ -37,24 +37,24 @@ struct PROCEDUALTERRAINTOOL_API FTerrainTileSpawnData
 	UPROPERTY(EditAnywhere)
 	FTerrainShapeMergeResult MergeResult;
 
-	FTerrainTileSpawnData(int Index, FTerrainShapeMergeResult MergeData) : ShapeIndex(Index), MergeResult(MergeData)
+	FTerrainTileInstanceData(int Index = 0, FTerrainShapeMergeResult MergeData = FTerrainShapeMergeResult()) : ShapeIndex(Index), MergeResult(MergeData)
 	{}
 };
 
-/* /\ ====================== /\ *\
-|  /\ FTerrainTileSpawnData  /\  |
-\* /\ ====================== /\ */
+/* /\ ========================= /\ *\
+|  /\ FTerrainTileInstanceData  /\  |
+\* /\ ========================= /\ */
 
 
-/* \/ ================= \/ *\
-|  \/ FTerrainTileData  \/  |
-\* \/ ================= \/ */
+/* \/ ====================== \/ *\
+|  \/ FTerrainTileSpawnData  \/  |
+\* \/ ====================== \/ */
 
 /**
  * Information needed to spawn a terrain tile tile.
  */
 USTRUCT(BlueprintType)
-struct PROCEDUALTERRAINTOOL_API FTerrainTileData
+struct PROCEDUALTERRAINTOOL_API FTerrainTileSpawnData
 {
 	GENERATED_BODY()
 
@@ -66,15 +66,15 @@ struct PROCEDUALTERRAINTOOL_API FTerrainTileData
 	UPROPERTY(EditAnywhere, Meta = (ClampMin = "0"))
 	float SpawnWeight = 1;
 
-	FTerrainTileData()
+	FTerrainTileSpawnData()
 	{
 
 	}
 };
 
-/* /\ ================= /\ *\
-|  /\ FTerrainTileData  /\  |
-\* /\ ================= /\ */
+/* /\ ====================== /\ *\
+|  /\ FTerrainTileSpawnData  /\  |
+\* /\ ====================== /\ */
 
 
 
@@ -94,7 +94,7 @@ public:
 	ATerrainHandler();
 
 	UPROPERTY(EditAnywhere)
-	TArray<FTerrainTileData> SpawnableTiles;
+	TArray<FTerrainTileSpawnData> SpawnableTiles;
 
 	UPROPERTY(EditAnywhere, Instanced)
 	UProcedualCollapseMode* CollapseMode = nullptr;
@@ -119,13 +119,13 @@ private:
 	UFUNCTION()
 	void SpawnTile(int ShapeIndex, FTerrainShapeMergeResult MergeResult);
 
-	FTerrainGenerationWorker* TerrainGenerationWorker;
+	class FTerrainGenerationWorker* TerrainGenerationWorker;
 
 	UPROPERTY()
 	FTimerHandle TileRefreshTimerHandle;
 
 	UPROPERTY()
-	TArray<FTerrainTileSpawnData> Tiles = TArray<FTerrainTileSpawnData>();
+	TArray<FTerrainTileInstanceData> Tiles = TArray<FTerrainTileInstanceData>();
 
 	UPROPERTY()
 	int NumberOfTilesSpawned = 0;
@@ -150,7 +150,7 @@ class FTerrainGenerationWorker : public FRunnable
 {
 public:
 	//Will be written to as superpositions are collapsed.
-	TArray<FTerrainTileSpawnData> Tiles;
+	TArray<FTerrainTileInstanceData> TerrainTiles;
 
 	/**
 	 * Determines whether the terrain is finished generating.
@@ -167,7 +167,7 @@ public:
 	 * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
 	 * @return Whether or not this matches the given data.
 	 */
-	bool MatchData(TArray<FTerrainTileData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0);
+	bool MatchData(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0);
 
 	/**
 	 * Blocking function that stops the terrain generation and waits for completion.
@@ -181,7 +181,7 @@ public:
 	 * @param Mode - The method used for deciding which superposition to collapse next.
 	 * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
 	 */
-	FTerrainGenerationWorker(TArray<FTerrainTileData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0);
+	FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0);
 
 	/**
 	 * Destructs this and handles thread deletion.
@@ -207,7 +207,7 @@ private:
 	//How many iterations into the future to search for failed superpositions.
 	int CollapsePredictionDepth;
 	//The tiles that will be used to generate the terrain.
-	TArray<FTerrainTileData> UseableTiles;
+	TArray<FTerrainTileSpawnData> UseableTiles;
 	//The shapes of the tiles.
 	TArray<FTerrainShape> TileShapes;
 	//The superposition of an empty socket.
@@ -230,11 +230,11 @@ private:
 	/**
 	 * Whether or not there is an available super position to collapse after the given merge.
 	 * 
-	 * @param Shape - The shape to query.
+	 * @param NewShape - The shape to query.
 	 * @param MergeResult - The result of the merge that most recently happened.
 	 * @param SeachDeapth - How many iterations into the future to search.
 	 */
-	bool HasNewCollapseableSuperPositions(FTerrainShape Shape, FTerrainShapeMergeResult MergeResult, int SearchDepth = 0) const;
+	bool HasNewCollapseableSuperPositions(FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult, int SearchDepth = 0) const;
 };
 
 /* /\ ========================= /\ *\
