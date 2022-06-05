@@ -6,10 +6,13 @@
 #include "DrawDebugHelpers.h"
 #include "Async/AsyncWork.h"
 #include "Async/Async.h"
-
-#include "TerrainSpriteData.h"
+#include "TerrainTileData.h"
 
 DEFINE_LOG_CATEGORY(LogTerrainTool);
+
+/* \/ ================ \/ *\
+|  \/ ATerrainHandler  \/  |
+\* \/ ================ \/ */
 
 ATerrainHandler::ATerrainHandler()
 {
@@ -17,120 +20,238 @@ ATerrainHandler::ATerrainHandler()
 	RootComponent->SetMobility(EComponentMobility::Static);
 }
 
-void ATerrainHandler::LogTest()
-{
-	UE_LOG(LogTemp, Warning, TEXT("LogTest thing"));
-	//FlushPersistentDebugLines(GetWorld());
-	//for (int i = 0; i < CurrentShape.Num(); i++)
-	//{
-	//	FVector Offset = FMath::RandPointInBox(FBox(FVector(-5, -5, -5), FVector(5, 5, 5)));
-	//	FVector LineStart = GetActorTransform().TransformPosition(FVector(CurrentShape.Vertices[i], 0));
-	//	FVector LineEnd = GetActorTransform().TransformPosition(FVector(CurrentShape.Vertices[(i + 1) % CurrentShape.Num()], 0));
-	//	FColor Color = FColor::MakeRandomColor();
-
-	//	DrawDebugLine(GetWorld(), LineStart, LineEnd, Color, true, 100, 0U, 5);
-
-	//	Color = (Color.ReinterpretAsLinear() / 2).ToFColor(false);
-	//	for (int j = 1; j <= i; j++)
-	//	{
-	//		if (j % 5 != 0)
-	//		{
-	//			DrawDebugLine(GetWorld(), (LineStart + LineEnd) / 2 + FVector(j * 5, 10, 0) + Offset, (LineStart + LineEnd) / 2 + FVector(j * 5, 10, 10) + Offset, Color, true, 100, 0U, 3);
-	//		}
-	//		else
-	//		{
-	//			DrawDebugLine(GetWorld(), (LineStart + LineEnd) / 2 + FVector((j-4) * 5, 10, 0) + Offset, (LineStart + LineEnd) / 2 + FVector((j-1) * 5, 10, 10) + Offset, Color, true, 100, 0U, 1.5);
-	//		}
-	//	}
-	//}
-}
-
-
-void ATerrainHandler::RefreshTileSet()
-{
-	SpriteShapes.Empty();
-	BaseSuperPositions.Empty();
-	CurrentSpawnableTiles = SpawnableTiles;
-
-	for (FTerrainTileData EachSpawnableTiles : SpawnableTiles)
-	{
-		SpriteShapes.Emplace(FTerrainShape(EachSpawnableTiles.SpriteData->Verticies, EachSpawnableTiles.SpriteData->FaceIndices));
-
-		TArray<bool> Faces = TArray<bool>();
-		Faces.Init(true, EachSpawnableTiles.SpriteData->Verticies.Num());
-		BaseSuperPositions.Emplace(Faces);
-	}
-
-	ResetTerrain();
-}
-
 void ATerrainHandler::ResetTerrain()
 {
-	FlushPersistentDebugLines(GetWorld());
-	CurrentShape = FTerrainShape();
-
-	SuperPositions.SetNum(1);
-	SuperPositions[0] = BaseSuperPositions;	
-
-	for (AActor* EachTerrainActor : TerrainActors)
+	for (AActor* EachTerrainActor : TileActors)
 	{
 		EachTerrainActor->Destroy();
 	}
-	TerrainActors.Empty();
+	TileActors.Empty();
 }
 
 void ATerrainHandler::DetachTerrain()
 {
-	for (AActor* EachTerrainActor : TerrainActors)
+	for (AActor* EachTerrainActor : TileActors)
 	{
 		EachTerrainActor->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	}
-	TerrainActors.Empty();
+	TileActors.Empty();
 	ResetTerrain();
 }
 
-void ATerrainHandler::CollapseAllSuperPositions()
+void ATerrainHandler::CollapseSuperPosition()
 {
-	FPlatformProcess::SupportsMultithreading()
-	FTimerHandle TimerHandle;
-	GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &ATerrainHandler::LogTest, 1, true);
-	//if (IsValid(CollapseMode))
-	//{
-	//	//bool bAnotherCollapseNesseary = true;
-	//	//while (bAnotherCollapseNesseary)
-	//	//{
-	//	//	FIntVector CollapseIndex;
-	//	//	bAnotherCollapseNesseary = CollapseMode->GetSuperPositionsToCollapse(CollapseIndex, CurrentShape, SuperPositions, CurrentSpawnableTiles, GetActorTransform());
-	//	//	CollapseSuperPosition(CollapseIndex);
-	//	//}
-	//	if (FTerrainGenerationWorker::IsThreadFinished())
-	//	{
-	//		FTerrainGenerationWorker::InitilizeCollapseThread(CollapseMode, CurrentShape, SuperPositions, CurrentSpawnableTiles, GetActorTransform())->CollapseDelegate.BindUFunction(this, FName("CollapseSuperPosition"));
-	//	}
-	//	else
-	//	{
-	//		UE_LOG(LogTerrainTool, Error, TEXT("Generation still in progress"));
-	//	}
-	//}
-	//else
-	//{
-	//	UE_LOG(LogTerrainTool, Error, TEXT("Select a Collapse Mode"));
-	//}
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		//Terrain generation worker setup
+		if (TerrainGenerationWorker)
+		{
+			if (!TerrainGenerationWorker->IsTerrainFinishedGenerating())
+			{
+				TerrainGenerationWorker->Shutdown();
+			}
+
+			if (!TerrainGenerationWorker->MatchData(SpawnableTiles, CollapseMode, CollapsePredictionDepth))
+			{
+				delete TerrainGenerationWorker;
+				UE_LOG(LogTerrainTool, Warning, TEXT("Spawnable tiles do not match current tile set. Reseting terrain..."))
+				TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, CollapseMode, CollapsePredictionDepth);
+				ResetTerrain();
+			}
+		}
+		else
+		{
+			TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, CollapseMode, CollapsePredictionDepth);
+		}
+		
+
+
+		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainHandler::RefreshTiles, 1, true);
+	}
+	else
+	{
+		UE_LOG(LogTerrainTool, Error, TEXT("Platform does not support multi threading"));
+	}
 }
 
-void ATerrainHandler::CollapseSuperPosition(FIntVector Index)
+void ATerrainHandler::SpawnTile(int ShapeIndex, FTerrainShapeMergeResult MergeResult)
+{
+	if (IsValid(CurrentSpawnableTiles[ShapeIndex].SpriteData->ActorClass.Get()))
+	{
+		//Calculate Actor Rotation
+		float A;
+		float B;
+		float C;
+		float D;
+		MergeResult.Transform.GetMatrix().GetMatrix(A, B, C, D);
+		if (FMath::IsNearlyZero(A))
+		{
+			A = SMALL_NUMBER;
+		}
+
+		float Angle = FMath::Atan(B / A);
+		if (A < 0)
+		{
+			Angle = PI + Angle;
+		}
+
+		//Spawn Actor
+		FTransform Transform = FTransform(FQuat(FVector(0, 0, 1), Angle), FVector(MergeResult.Transform.GetTranslation(), 0));
+		AActor* NewTerrainActor = GetWorld()->SpawnActor<AActor>(CurrentSpawnableTiles[ShapeIndex].SpriteData->ActorClass.Get(), Transform);
+		NewTerrainActor->SetActorTransform(Transform);
+		NewTerrainActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+		TerrainActors.Add(NewTerrainActor);
+	}
+}
+
+/* /\ ================ /\ *\
+|  /\ ATerrainHandler  /\  |
+\* /\ ================ /\ */
+
+
+
+/* \/ ========================= \/ *\
+|  \/ FTerrainGenerationWorker  \/  |
+\* \/ ========================= \/ */
+
+/**
+ * Determines whether the terrain is finished generating.
+ *
+ * @return Whether or not the terrain is finished generating.
+ */
+bool FTerrainGenerationWorker::IsTerrainFinishedGenerating()
+{
+	return bCompleated;
+}
+
+/**
+ * Whether or not this matches the given data. Will mutate this if possible to match the given data.
+ *
+ * @param UseableTiles - The tiles that will be used to generate the terrain.
+ * @param Mode - The method used for deciding which superposition to collapse next.
+ * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
+ */
+bool FTerrainGenerationWorker::MatchData(TArray<FTerrainTileData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0)
+{
+	if (Tiles != UseableTiles)
+	{
+		return false;
+	}
+
+	CollapseMode = Mode;
+	CollapsePredictionDepth = PredictionDepth;
+	return true;
+}
+
+/**
+ * Blocking function that stops the terrain generation and waits for completion.
+ */
+void FTerrainGenerationWorker::Shutdown()
+{
+	Stop();
+	Thread->WaitForCompletion();
+}
+
+/**
+ * Creates a FTerrainGenerationWorker able to compute superposition collapses of the given tiles.
+ *
+ * @param OutTiles - Will be written to as superpositions are collapsed.
+ * @param UseableTiles - The tiles that will be used to generate the terrain.
+ * @param Mode - The method used for deciding which superposition to collapse next.
+ * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
+ */
+FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0) : 
+	UseableTiles(Tiles), 
+	CollapseMode(Mode), 
+	CollapsePredictionDepth(PredictionDepth), 
+	bCompleated(false)
+{ 
+	//Create thread.
+	Thread = FRunnableThread::Create(this, TEXT("FTerrainGenerationWorker"), 0, TPri_BelowNormal);
+
+	//Set up generation constants.
+	TileShapes.Empty();
+	BaseSuperPositions.Empty();
+
+	for (FTerrainTileData EachUseableTile : UseableTiles)
+	{
+		TileShapes.Emplace(FTerrainShape(EachUseableTile.TileData->Verticies, EachUseableTile.TileData->FaceIndices));
+
+		TArray<bool> Faces = TArray<bool>();
+		Faces.Init(true, EachUseableTile.TileData->Verticies.Num());
+		BaseSuperPositions.Emplace(Faces);
+	}
+}
+
+/**
+ * Destructs this and handles thread deletion.
+ */
+FTerrainGenerationWorker::~FTerrainGenerationWorker()
+{ 
+	delete Thread;
+	Thread = NULL; 
+}
+
+bool FTerrainGenerationWorker::Init()
+{
+	bCompleated = false;
+
+	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
+	UE_LOG(LogTerrainTool, Log, TEXT("Super Position Collapse Started"));
+	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
+
+	return true;
+}
+
+uint32 FTerrainGenerationWorker::Run()
+{ 
+	//Initial wait before starting 
+	FPlatformProcess::Sleep(0.03);	
+
+
+	while (!bCompleated)
+	{
+		FIntVector CollapseResult;
+		if (!CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles))
+		{
+			Stop();
+		}
+		UE_LOG(LogTerrainTool, Log, TEXT("Collapse %s"), *CollapseResult.ToString());
+		CollapseSuperPosition(CollapseResult);
+
+		//Prevent thread from using too many resources.
+		FPlatformProcess::Sleep(0.01);
+	}
+	return 0;
+}
+
+void FTerrainGenerationWorker::Stop()
+{ 
+	bCompleated = true;
+
+	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
+	UE_LOG(LogTerrainTool, Log, TEXT(" Super Position Collapse Ended "));
+	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
+}
+
+/**
+ * Attempts to collapse a super position at a given index.
+ *
+ * @param Index - X = Socket to connect to, Y = Tile to add, Z = Socket on tile to connect to.
+ * @return Whether or not the collapse was successful.
+ */
+bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
 {
 	int SocketIndex = Index.X;
 	int ShapeIndex = Index.Y;
 	int FaceIndex = Index.Z;
 
-	UE_LOG(LogTerrainTool, Log, TEXT("\\/------------------------ %i, %i, %i ------------------------\\/"), SocketIndex, ShapeIndex, FaceIndex);
 	if (SuperPositions.IsValidIndex(SocketIndex) && SuperPositions[SocketIndex].IsValidIndex(ShapeIndex) && SuperPositions[SocketIndex][ShapeIndex].IsValidIndex(FaceIndex) && SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
 	{
 		FTerrainShape NewShape;
 		FTerrainShapeMergeResult MergeResult;
 
-		if (ensureAlwaysMsgf(CurrentShape.MergeShape(NewShape, MergeResult, SocketIndex, SpriteShapes[ShapeIndex], FaceIndex), TEXT("Super Position Array False")))
+		if (ensureAlwaysMsgf(Shape.MergeShape(NewShape, MergeResult, SocketIndex, TileShapes[ShapeIndex], FaceIndex), TEXT("Super Position Array False")))
 		{
 
 
@@ -156,7 +277,7 @@ void ATerrainHandler::CollapseSuperPosition(FIntVector Index)
 				}
 			}
 			SuperPositions = NewSuperPositions;
-			CurrentShape = NewShape;
+			Shape = NewShape;
 
 			//UE_LOG(LogTerrainTool, Log, TEXT("%s"), *Debug1);
 
@@ -167,7 +288,7 @@ void ATerrainHandler::CollapseSuperPosition(FIntVector Index)
 			{
 				//FString Debug = FString();
 				//Debug += FString::FromInt(UPTTMath::Mod(CurrentShape.Num() - 1 - MergeResult.Growth + Offset, CurrentShape.Num())) + "\t|  ";
-				int CollapseSocketIndex = UPTTMath::Mod(CurrentShape.Num() - 1 - MergeResult.Growth + Offset, CurrentShape.Num());
+				int CollapseSocketIndex = UPTTMath::Mod(Shape.Num() - 1 - MergeResult.Growth + Offset, Shape.Num());
 				for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
 				{
 					for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperPositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)
@@ -176,7 +297,7 @@ void ATerrainHandler::CollapseSuperPosition(FIntVector Index)
 						{
 							FTerrainShape CollapsedShape;
 							FTerrainShapeMergeResult CollapsedShapeMergeResult;
-							if (CurrentShape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, SpriteShapes[CollapseShapeIndex], CollapseFaceIndex))
+							if (Shape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex))
 							{
 								//Debug += "C";
 								bool bCanCollapse = HasNewCollapseableSuperPositions(CollapsedShape, CollapsedShapeMergeResult, CollapsePredictionDepth);
@@ -215,43 +336,21 @@ void ATerrainHandler::CollapseSuperPosition(FIntVector Index)
 			}
 
 			// /\ Refresh Super Positions /\ //
-			return;
+			return true;
 		}
 	}
 	UE_LOG(LogTerrainTool, Error, TEXT("Collapse Failed"));
+	return false;
 }
 
-void ATerrainHandler::SpawnTile(int ShapeIndex, FTerrainShapeMergeResult MergeResult)
-{
-	if (IsValid(CurrentSpawnableTiles[ShapeIndex].SpriteData->ActorClass.Get()))
-	{
-		//Calculate Actor Rotation
-		float A;
-		float B;
-		float C;
-		float D;
-		MergeResult.Transform.GetMatrix().GetMatrix(A, B, C, D);
-		if (FMath::IsNearlyZero(A))
-		{
-			A = SMALL_NUMBER;
-		}
-
-		float Angle = FMath::Atan(B / A);
-		if (A < 0)
-		{
-			Angle = PI + Angle;
-		}
-
-		//Spawn Actor
-		FTransform Transform = FTransform(FQuat(FVector(0, 0, 1), Angle), FVector(MergeResult.Transform.GetTranslation(), 0));
-		AActor* NewTerrainActor = GetWorld()->SpawnActor<AActor>(CurrentSpawnableTiles[ShapeIndex].SpriteData->ActorClass.Get(), Transform);
-		NewTerrainActor->SetActorTransform(Transform);
-		NewTerrainActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-		TerrainActors.Add(NewTerrainActor);
-	}
-}
-
-bool ATerrainHandler::HasNewCollapseableSuperPositions(FTerrainShape Shape, FTerrainShapeMergeResult MergeResult, int SearchDepth)
+/**
+ * Whether or not there is an available super position to collapse after the given merge.
+ *
+ * @param Shape - The shape to query.
+ * @param MergeResult - The result of the merge that most recently happened.
+ * @param SeachDeapth - How many iterations into the future to search.
+ */
+bool FTerrainGenerationWorker::HasNewCollapseableSuperPositions(FTerrainShape Shape, FTerrainShapeMergeResult MergeResult, int SearchDepth) const
 {
 	for (int Offset = 0; Offset < MergeResult.Growth + 2; Offset++)
 	{
@@ -259,7 +358,7 @@ bool ATerrainHandler::HasNewCollapseableSuperPositions(FTerrainShape Shape, FTer
 		for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
 		{
 			for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperPositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)
-			{				
+			{
 				FTerrainShape CollapsedShape;
 				FTerrainShapeMergeResult CollapsedShapeMergeResult;
 				if (Shape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, SpriteShapes[CollapseShapeIndex], CollapseFaceIndex))
@@ -274,79 +373,13 @@ bool ATerrainHandler::HasNewCollapseableSuperPositions(FTerrainShape Shape, FTer
 		return false;
 
 
-		NextSocket:
+	NextSocket:
 		;
 	}
-	
-	return true;
-}
-
-FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>& OutTiles, TArray<FTerrainTileData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0) : UseableTiles(Tiles), CollapseMode(Mode), CollapsePredictionDepth(PredictionDepth), bCompleated(false)
-{ 
-	//Link to where data should be stored .
-	Tiles = &OutTiles;
-	//Create thread.
-	Thread = FRunnableThread::Create(this, TEXT("FTerrainGenerationWorker"), 0, TPri_BelowNormal);
-}
-
-FTerrainGenerationWorker::~FTerrainGenerationWorker()
-{ 
-	delete Thread;
-	Thread = NULL; 
-}
-
-//Init 
-bool FTerrainGenerationWorker::Init()
-{
-	bCompleated = false;
-
-	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
-	UE_LOG(LogTerrainTool, Log, TEXT("Super Position Collapse Started"));
-	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
 
 	return true;
 }
 
-//Run 
-uint32 FTerrainGenerationWorker::Run()
-{ 
-	//Initial wait before starting 
-	FPlatformProcess::Sleep(0.03);	
-
-
-	while (!bCompleated)
-	{
-		FIntVector CollapseResult;
-		if (!CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, SpawnableTiles))
-		{
-			Stop();
-		}
-		UE_LOG(LogTerrainTool, Log, TEXT("Collapse %s"), *CollapseResult.ToString());
-		CollapseSuperPosition(CollapseResult);
-
-		//Prevent thread from using too many resources.
-		FPlatformProcess::Sleep(0.01);
-	}
-	return 0;
-}
-
-//stop 
-void FTerrainGenerationWorker::Stop()
-{ 
-	bCompleated = true;
-
-	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
-	UE_LOG(LogTerrainTool, Log, TEXT(" Super Position Collapse Ended "));
-	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
-}
-
-void FTerrainGenerationWorker::Shutdown()
-{ 
-	Stop();
-	Thread->WaitForCompletion();
-}
-
-bool FTerrainGenerationWorker::IsThreadFinished()
-{
-	return bCompleated;
-}
+/* /\ ========================= /\ *\
+|  /\ FTerrainGenerationWorker  /\  |
+\* /\ ========================= /\ */

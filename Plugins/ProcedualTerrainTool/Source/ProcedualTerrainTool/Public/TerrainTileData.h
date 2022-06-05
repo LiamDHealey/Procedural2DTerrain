@@ -7,12 +7,12 @@
 
 
 #include "Engine/DataAsset.h"
-#include "TerrainSpriteData.generated.h"
+#include "TerrainTileData.generated.h"
 /**
  * 
  */
 UCLASS()
-class PROCEDUALTERRAINTOOL_API UTerrainSpriteData : public UDataAsset
+class PROCEDUALTERRAINTOOL_API UTerrainTileData : public UDataAsset
 {
 	GENERATED_BODY()
 	
