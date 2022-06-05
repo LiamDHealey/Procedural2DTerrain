@@ -27,7 +27,7 @@ public:
 	 * @param SpawnableTiles - The tiles that can be spawned.
 	 * @return Whether or not another collapse is needed.
 	 */
-	virtual bool GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles, FTransform TerrainTransform) const;
+	virtual bool GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles) const;
 };
 
 /**
@@ -47,7 +47,7 @@ class PROCEDUALTERRAINTOOL_API UManualCollapseMode : public UProcedualCollapseMo
 	 * @param SpawnableTiles - The tiles that can be spawned.
 	 * @return Whether or not another collapse is needed.
 	 */
-	bool GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles, FTransform TerrainTransform) const override;
+	bool GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles) const override;
 
 	//The location to collapse the superposition at. X = Socket Index, Y = Index of the terrain tile to add at Socket Index, Z = The Socket Index on the selected tile to match to the selected Socket Index.
 	UPROPERTY(EditAnywhere)
@@ -71,7 +71,7 @@ class PROCEDUALTERRAINTOOL_API UCircularCollapseMode : public UProcedualCollapse
 	 * @param SpawnableTiles - The tiles that can be spawned.
 	 * @return Whether or not another collapse is needed.
 	 */
-	bool GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles, FTransform TerrainTransform) const override;
+	bool GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles) const override;
 
 	//The radius of the circle to fill.
 	UPROPERTY(EditAnywhere)
@@ -95,7 +95,7 @@ class PROCEDUALTERRAINTOOL_API URectangularCollapseMode : public UProcedualColla
 	 * @param SpawnableTiles - The tiles that can be spawned.
 	 * @return Whether or not another collapse is needed.
 	 */
-	bool GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles, FTransform TerrainTransform) const override;
+	bool GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileData> SpawnableTiles) const override;
 
 	//The extent of the box to fill.
 	UPROPERTY(EditAnywhere)
