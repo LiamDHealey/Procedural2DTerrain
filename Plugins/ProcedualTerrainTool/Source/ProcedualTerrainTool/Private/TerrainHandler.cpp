@@ -22,6 +22,8 @@ ATerrainHandler::ATerrainHandler()
 
 void ATerrainHandler::ResetTerrain()
 {
+	ShutdownWorker();
+
 	for (AActor* EachTerrainActor : TileActors)
 	{
 		EachTerrainActor->Destroy();
@@ -31,6 +33,8 @@ void ATerrainHandler::ResetTerrain()
 
 void ATerrainHandler::DetachTerrain()
 {
+	ShutdownWorker();
+
 	for (AActor* EachTerrainActor : TileActors)
 	{
 		EachTerrainActor->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
@@ -43,21 +47,9 @@ void ATerrainHandler::CollapseSuperPosition()
 {
 	if (FPlatformProcess::SupportsMultithreading())
 	{
-		//Terrain generation worker setup
-		if (TerrainGenerationWorker)
-		{
-			if (!TerrainGenerationWorker->IsTerrainFinishedGenerating())
-			{
-				TerrainGenerationWorker->Shutdown();
-			}
-
-			delete TerrainGenerationWorker;
-			TerrainGenerationWorker = NULL;
-		}
+		ResetTerrain();
 		TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, CollapseMode, CollapsePredictionDepth);
 		
-
-		ResetTerrain();
 		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainHandler::RefreshTiles, 1, true);
 	}
 	else
@@ -118,6 +110,23 @@ void ATerrainHandler::SpawnTile(FTerrainTileInstanceData TileData)
 		NewTerrainActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 		TileActors.Add(NewTerrainActor);
 	}
+}
+
+void ATerrainHandler::ShutdownWorker()
+{
+	//Terrain generation worker setup
+	if (TerrainGenerationWorker)
+	{
+		if (!TerrainGenerationWorker->IsTerrainFinishedGenerating())
+		{
+			TerrainGenerationWorker->Shutdown();
+		}
+
+		delete TerrainGenerationWorker;
+		TerrainGenerationWorker = NULL;
+	}
+
+	NumberOfTilesSpawned = 0;
 }
 
 /* /\ ================ /\ *\
@@ -239,10 +248,10 @@ uint32 FTerrainGenerationWorker::Run()
 		FIntVector CollapseResult;
 		bCompleated = !CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles);
 		CollapseSuperPosition(CollapseResult);
-		UE_LOG(LogTerrainTool, Log, TEXT("Collapse %s"), *CollapseResult.ToString());
+		//UE_LOG(LogTerrainTool, Log, TEXT("Collapse %s"), *CollapseResult.ToString());
 
 		//Prevent thread from using too many resources.
-		FPlatformProcess::Sleep(0.01);
+		FPlatformProcess::Sleep(0.002);
 	}
 
 

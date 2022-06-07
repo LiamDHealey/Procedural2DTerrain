@@ -107,13 +107,13 @@ public:
 	UPROPERTY(EditAnywhere, Meta = (ClampMin = "0", ClampMax = "3"))
 	int CollapsePredictionDepth = 0;
 
-	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
 	void ResetTerrain();
 
-	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
 	void DetachTerrain();
 
-	UFUNCTION(CallInEditor, Meta = (Category = "TerrainHandler"))
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
 	void CollapseSuperPosition();
 
 private:
@@ -123,6 +123,9 @@ private:
 
 	UFUNCTION()
 	void SpawnTile(FTerrainTileInstanceData TileData);
+
+	UFUNCTION()
+	void ShutdownWorker();
 
 	class FTerrainGenerationWorker* TerrainGenerationWorker;
 
