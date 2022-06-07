@@ -70,6 +70,11 @@ struct PROCEDUALTERRAINTOOL_API FTerrainTileSpawnData
 	{
 
 	}
+
+	bool operator==(const FTerrainTileSpawnData& OtherData) const
+	{
+		return TileData == OtherData.TileData && SpawnWeight == OtherData.SpawnWeight;
+	}
 };
 
 /* /\ ====================== /\ *\
@@ -117,7 +122,7 @@ private:
 	void RefreshTiles();
 
 	UFUNCTION()
-	void SpawnTile(int ShapeIndex, FTerrainShapeMergeResult MergeResult);
+	void SpawnTile(FTerrainTileInstanceData TileData);
 
 	class FTerrainGenerationWorker* TerrainGenerationWorker;
 
@@ -198,9 +203,8 @@ public:
 private:
 	//Thread to run the worker FRunnable on 
 	FRunnableThread* Thread;
-	//Whether or not the task is complete.
-	std::atomic_bool bCompleated;
-
+	//Whether or not the task has been stopped prematurely.
+	std::atomic_bool bStopped;
 
 	//The method used for deciding which superposition to collapse next.
 	UProcedualCollapseMode* CollapseMode;
@@ -218,6 +222,8 @@ private:
 	FTerrainShape Shape = FTerrainShape();
 	//Whether or not a given tile can connect to a given socket. SuperPositions[Socket to connect to][Tile to add][Socket on tile to connect to].
 	TArray<TArray<TArray<bool>>> SuperPositions = TArray<TArray<TArray<bool>>>();
+	//Whether or not the task is complete.
+	bool bCompleated;
 
 	/**
 	 * Attempts to collapse a super position at a given index. 

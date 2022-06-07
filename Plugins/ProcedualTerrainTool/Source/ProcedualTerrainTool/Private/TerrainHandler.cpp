@@ -51,20 +51,13 @@ void ATerrainHandler::CollapseSuperPosition()
 				TerrainGenerationWorker->Shutdown();
 			}
 
-			if (!TerrainGenerationWorker->MatchData(SpawnableTiles, CollapseMode, CollapsePredictionDepth))
-			{
-				delete TerrainGenerationWorker;
-				UE_LOG(LogTerrainTool, Warning, TEXT("Spawnable tiles do not match current tile set. Reseting terrain..."))
-				TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, CollapseMode, CollapsePredictionDepth);
-				ResetTerrain();
-			}
+			delete TerrainGenerationWorker;
+			TerrainGenerationWorker = NULL;
 		}
-		else
-		{
-			TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, CollapseMode, CollapsePredictionDepth);
-		}
+		TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, CollapseMode, CollapsePredictionDepth);
 		
 
+		ResetTerrain();
 		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainHandler::RefreshTiles, 1, true);
 	}
 	else
@@ -73,16 +66,40 @@ void ATerrainHandler::CollapseSuperPosition()
 	}
 }
 
-void ATerrainHandler::SpawnTile(int ShapeIndex, FTerrainShapeMergeResult MergeResult)
+void ATerrainHandler::RefreshTiles()
 {
-	if (IsValid(SpawnableTiles[ShapeIndex].TileData->ActorClass.Get()))
+	UE_LOG(LogTerrainTool, Log, TEXT("Refreshing Tiles..."));
+	if (TerrainGenerationWorker)
+	{
+		for (NumberOfTilesSpawned; NumberOfTilesSpawned < TerrainGenerationWorker->TerrainTiles.Num(); NumberOfTilesSpawned++)
+		{
+			SpawnTile(TerrainGenerationWorker->TerrainTiles[NumberOfTilesSpawned]);
+		}
+
+		if (TerrainGenerationWorker->IsTerrainFinishedGenerating())
+		{
+			TerrainGenerationWorker->Shutdown();
+			delete TerrainGenerationWorker;
+			TerrainGenerationWorker = NULL;
+			GetWorldTimerManager().ClearTimer(TileRefreshTimerHandle);
+		}
+	}
+	else
+	{
+		GetWorldTimerManager().ClearTimer(TileRefreshTimerHandle);
+	}
+}
+
+void ATerrainHandler::SpawnTile(FTerrainTileInstanceData TileData)
+{
+	if (IsValid(SpawnableTiles[TileData.ShapeIndex].TileData->ActorClass.Get()))
 	{
 		//Calculate Actor Rotation
 		float A;
 		float B;
 		float C;
 		float D;
-		MergeResult.Transform.GetMatrix().GetMatrix(A, B, C, D);
+		TileData.MergeResult.Transform.GetMatrix().GetMatrix(A, B, C, D);
 		if (FMath::IsNearlyZero(A))
 		{
 			A = SMALL_NUMBER;
@@ -95,8 +112,8 @@ void ATerrainHandler::SpawnTile(int ShapeIndex, FTerrainShapeMergeResult MergeRe
 		}
 
 		//Spawn Actor
-		FTransform Transform = FTransform(FQuat(FVector(0, 0, 1), Angle), FVector(MergeResult.Transform.GetTranslation(), 0));
-		AActor* NewTerrainActor = GetWorld()->SpawnActor<AActor>(SpawnableTiles[ShapeIndex].TileData->ActorClass.Get(), Transform);
+		FTransform Transform = FTransform(FQuat(FVector(0, 0, 1), Angle), FVector(TileData.MergeResult.Transform.GetTranslation(), 0));
+		AActor* NewTerrainActor = GetWorld()->SpawnActor<AActor>(SpawnableTiles[TileData.ShapeIndex].TileData->ActorClass.Get(), Transform);
 		NewTerrainActor->SetActorTransform(Transform);
 		NewTerrainActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 		TileActors.Add(NewTerrainActor);
@@ -147,8 +164,11 @@ bool FTerrainGenerationWorker::MatchData(TArray<FTerrainTileSpawnData> Tiles, UP
  */
 void FTerrainGenerationWorker::Shutdown()
 {
-	Stop();
-	Thread->WaitForCompletion();
+	if (this)
+	{
+		Stop();
+		//Thread->WaitForCompletion();
+	}
 }
 
 /**
@@ -161,6 +181,7 @@ void FTerrainGenerationWorker::Shutdown()
  */
 FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth) :
 	bCompleated(false),
+	bStopped(false),
 	CollapseMode(Mode),
 	CollapsePredictionDepth(PredictionDepth),
 	UseableTiles(Tiles)
@@ -168,9 +189,12 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>
 	//Create thread.
 	Thread = FRunnableThread::Create(this, TEXT("FTerrainGenerationWorker"), 0, TPri_BelowNormal);
 
+	//Initialize output
+	TerrainTiles = TArray<FTerrainTileInstanceData>();
+
 	//Set up generation constants.
-	TileShapes.Empty();
-	BaseSuperPositions.Empty();
+	TileShapes = TArray<FTerrainShape>();
+	BaseSuperPositions = TArray<TArray<bool>>();
 
 	for (FTerrainTileSpawnData EachUseableTile : UseableTiles)
 	{
@@ -180,6 +204,9 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>
 		Faces.Init(true, EachUseableTile.TileData->Verticies.Num());
 		BaseSuperPositions.Emplace(Faces);
 	}
+
+	SuperPositions = TArray<TArray<TArray<bool>>>();
+	SuperPositions.Emplace(BaseSuperPositions);
 }
 
 /**
@@ -207,30 +234,28 @@ uint32 FTerrainGenerationWorker::Run()
 	//Initial wait before starting 
 	FPlatformProcess::Sleep(0.03);	
 
-
-	while (!bCompleated)
+	while (!(bCompleated || bStopped))
 	{
 		FIntVector CollapseResult;
-		if (!CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles))
-		{
-			Stop();
-		}
-		UE_LOG(LogTerrainTool, Log, TEXT("Collapse %s"), *CollapseResult.ToString());
+		bCompleated = !CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles);
 		CollapseSuperPosition(CollapseResult);
+		UE_LOG(LogTerrainTool, Log, TEXT("Collapse %s"), *CollapseResult.ToString());
 
 		//Prevent thread from using too many resources.
 		FPlatformProcess::Sleep(0.01);
 	}
+
+
+	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
+	UE_LOG(LogTerrainTool, Log, TEXT(" Super Position Collapse Ended "));
+	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
+
 	return 0;
 }
 
 void FTerrainGenerationWorker::Stop()
 { 
-	bCompleated = true;
-
-	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
-	UE_LOG(LogTerrainTool, Log, TEXT(" Super Position Collapse Ended "));
-	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
+	bStopped = true;
 }
 
 /**

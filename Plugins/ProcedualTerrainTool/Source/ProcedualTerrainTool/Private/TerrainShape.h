@@ -129,6 +129,11 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 			return EConnectionResult::No;
 		}
 	}
+
+	bool operator==(const FTerrainSocket& OtherSocket) const
+	{
+		return SocketIndex == OtherSocket.SocketIndex && Length == OtherSocket.Length && FirstAngle == OtherSocket.FirstAngle && SecondAngle == OtherSocket.SecondAngle;
+	}
 };
 
 /**
@@ -465,5 +470,10 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		
 
 		return true;
+	}
+
+	bool operator==(const FTerrainShape& OtherShape) const
+	{
+		return ShapeSockets == OtherShape.ShapeSockets && Vertices == OtherShape.Vertices;
 	}
 };
