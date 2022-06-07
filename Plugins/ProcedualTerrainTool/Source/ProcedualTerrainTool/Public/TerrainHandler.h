@@ -116,6 +116,9 @@ public:
 	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
 	void CollapseSuperPosition();
 
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
+	void StopCollapsing();
+
 private:
 
 	UFUNCTION(Meta = (Category = "TerrainHandler"))
@@ -124,8 +127,6 @@ private:
 	UFUNCTION()
 	void SpawnTile(FTerrainTileInstanceData TileData);
 
-	UFUNCTION()
-	void ShutdownWorker();
 
 	class FTerrainGenerationWorker* TerrainGenerationWorker;
 

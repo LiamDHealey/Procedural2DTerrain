@@ -127,7 +127,6 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 		return false;
 	}
 	//Fail for invalid shapes
-	UE_LOG(LogTerrainTool, Error, TEXT("Invalid shape consider refreshing tile data"));
 	SuperPositionIndex = FIntVector(0,0,0);
 	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
 }
@@ -229,7 +228,6 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 		SuperPositionIndex = FIntVector(0, 0, 0);
 		return false;
 	}
-	UE_LOG(LogTerrainTool, Error, TEXT("Invalid shape consider refreshing tile data"));
 	SuperPositionIndex = FIntVector(0, 0, 0);
 	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
 }

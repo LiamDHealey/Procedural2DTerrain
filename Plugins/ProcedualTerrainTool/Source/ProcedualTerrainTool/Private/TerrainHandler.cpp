@@ -22,7 +22,7 @@ ATerrainHandler::ATerrainHandler()
 
 void ATerrainHandler::ResetTerrain()
 {
-	ShutdownWorker();
+	StopCollapsing();
 
 	for (AActor* EachTerrainActor : TileActors)
 	{
@@ -33,7 +33,7 @@ void ATerrainHandler::ResetTerrain()
 
 void ATerrainHandler::DetachTerrain()
 {
-	ShutdownWorker();
+	StopCollapsing();
 
 	for (AActor* EachTerrainActor : TileActors)
 	{
@@ -50,7 +50,7 @@ void ATerrainHandler::CollapseSuperPosition()
 		ResetTerrain();
 		TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, CollapseMode, CollapsePredictionDepth);
 		
-		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainHandler::RefreshTiles, 1, true);
+		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainHandler::RefreshTiles, .1, true);
 	}
 	else
 	{
@@ -60,7 +60,6 @@ void ATerrainHandler::CollapseSuperPosition()
 
 void ATerrainHandler::RefreshTiles()
 {
-	UE_LOG(LogTerrainTool, Log, TEXT("Refreshing Tiles..."));
 	if (TerrainGenerationWorker)
 	{
 		for (NumberOfTilesSpawned; NumberOfTilesSpawned < TerrainGenerationWorker->TerrainTiles.Num(); NumberOfTilesSpawned++)
@@ -112,7 +111,7 @@ void ATerrainHandler::SpawnTile(FTerrainTileInstanceData TileData)
 	}
 }
 
-void ATerrainHandler::ShutdownWorker()
+void ATerrainHandler::StopCollapsing()
 {
 	//Terrain generation worker setup
 	if (TerrainGenerationWorker)
@@ -231,9 +230,7 @@ bool FTerrainGenerationWorker::Init()
 {
 	bCompleated = false;
 
-	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
-	UE_LOG(LogTerrainTool, Log, TEXT("Super Position Collapse Started"));
-	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
+	UE_LOG(LogTerrainTool, Log, TEXT("--- Super Position Collapse Started ---"));
 
 	return true;
 }
@@ -251,13 +248,11 @@ uint32 FTerrainGenerationWorker::Run()
 		//UE_LOG(LogTerrainTool, Log, TEXT("Collapse %s"), *CollapseResult.ToString());
 
 		//Prevent thread from using too many resources.
-		FPlatformProcess::Sleep(0.002);
+		//FPlatformProcess::Sleep(0.001);
 	}
 
 
-	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
-	UE_LOG(LogTerrainTool, Log, TEXT(" Super Position Collapse Ended "));
-	UE_LOG(LogTerrainTool, Log, TEXT("*******************************"));
+	UE_LOG(LogTerrainTool, Log, TEXT("---- Super Position Collapse Ended ----"));
 
 	return 0;
 }
