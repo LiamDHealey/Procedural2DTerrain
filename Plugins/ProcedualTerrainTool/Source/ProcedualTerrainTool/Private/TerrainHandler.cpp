@@ -20,42 +20,50 @@ ATerrainHandler::ATerrainHandler()
 	RootComponent->SetMobility(EComponentMobility::Static);
 }
 
-void ATerrainHandler::ResetTerrain()
+void ATerrainHandler::BeginGeneration()
 {
-	StopCollapsing();
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		Reset();
+		TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, GenerationMode, PredictionDepth);
+		
+		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainHandler::RefreshTiles, .1, true);
+
+		GenerationMode->DrawGenerationBounds(GetActorTransform());
+	}
+	else
+	{
+		UE_LOG(LogTerrainTool, Error, TEXT("Platform does not support multi threading"));
+	}
+}
+
+void ATerrainHandler::EndGeneration()
+{
+	//Terrain generation worker setup
+	if (TerrainGenerationWorker)
+	{
+		if (!TerrainGenerationWorker->IsTerrainFinishedGenerating())
+		{
+			TerrainGenerationWorker->Shutdown();
+		}
+
+		delete TerrainGenerationWorker;
+		TerrainGenerationWorker = NULL;
+	}
+
+	NumberOfTilesSpawned = 0;
+}
+
+
+void ATerrainHandler::Reset()
+{
+	EndGeneration();
 
 	for (AActor* EachTerrainActor : TileActors)
 	{
 		EachTerrainActor->Destroy();
 	}
 	TileActors.Empty();
-}
-
-void ATerrainHandler::DetachTerrain()
-{
-	StopCollapsing();
-
-	for (AActor* EachTerrainActor : TileActors)
-	{
-		EachTerrainActor->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-	}
-	TileActors.Empty();
-	ResetTerrain();
-}
-
-void ATerrainHandler::CollapseSuperPosition()
-{
-	if (FPlatformProcess::SupportsMultithreading())
-	{
-		ResetTerrain();
-		TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, CollapseMode, CollapsePredictionDepth);
-		
-		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainHandler::RefreshTiles, .1, true);
-	}
-	else
-	{
-		UE_LOG(LogTerrainTool, Error, TEXT("Platform does not support multi threading"));
-	}
 }
 
 void ATerrainHandler::RefreshTiles()
@@ -73,10 +81,12 @@ void ATerrainHandler::RefreshTiles()
 			delete TerrainGenerationWorker;
 			TerrainGenerationWorker = NULL;
 			GetWorldTimerManager().ClearTimer(TileRefreshTimerHandle);
+			FlushPersistentDebugLines(GetWorld());
 		}
 	}
 	else
 	{
+		FlushPersistentDebugLines(GetWorld());
 		GetWorldTimerManager().ClearTimer(TileRefreshTimerHandle);
 	}
 }
@@ -109,23 +119,6 @@ void ATerrainHandler::SpawnTile(FTerrainTileInstanceData TileData)
 		NewTerrainActor->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
 		TileActors.Add(NewTerrainActor);
 	}
-}
-
-void ATerrainHandler::StopCollapsing()
-{
-	//Terrain generation worker setup
-	if (TerrainGenerationWorker)
-	{
-		if (!TerrainGenerationWorker->IsTerrainFinishedGenerating())
-		{
-			TerrainGenerationWorker->Shutdown();
-		}
-
-		delete TerrainGenerationWorker;
-		TerrainGenerationWorker = NULL;
-	}
-
-	NumberOfTilesSpawned = 0;
 }
 
 /* /\ ================ /\ *\

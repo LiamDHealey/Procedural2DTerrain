@@ -98,26 +98,23 @@ class PROCEDUALTERRAINTOOL_API ATerrainHandler : public AActor
 public:
 	ATerrainHandler();
 
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
+	void BeginGeneration();
+
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
+	void EndGeneration();
+
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
+	void Reset();
+
 	UPROPERTY(EditAnywhere)
 	TArray<FTerrainTileSpawnData> SpawnableTiles;
 
 	UPROPERTY(EditAnywhere, Instanced)
-	UProcedualCollapseMode* CollapseMode = nullptr;
+	UProcedualCollapseMode* GenerationMode = nullptr;
 
 	UPROPERTY(EditAnywhere, Meta = (ClampMin = "0", ClampMax = "3"))
-	int CollapsePredictionDepth = 0;
-
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
-	void ResetTerrain();
-
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
-	void DetachTerrain();
-
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
-	void CollapseSuperPosition();
-
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
-	void StopCollapsing();
+	int PredictionDepth = 0;
 
 private:
 
