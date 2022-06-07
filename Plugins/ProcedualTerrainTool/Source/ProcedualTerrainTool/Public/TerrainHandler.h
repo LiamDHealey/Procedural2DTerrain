@@ -124,8 +124,10 @@ private:
 	UFUNCTION()
 	void SpawnTile(FTerrainTileInstanceData TileData);
 
-
 	class FTerrainGenerationWorker* TerrainGenerationWorker;
+
+	UPROPERTY()
+	FTerrainShape TerrainShape = FTerrainShape();
 
 	UPROPERTY()
 	FTimerHandle TileRefreshTimerHandle;
@@ -155,8 +157,25 @@ private:
 class FTerrainGenerationWorker : public FRunnable
 {
 public:
-	//Will be written to as superpositions are collapsed.
-	TArray<FTerrainTileInstanceData> TerrainTiles;
+	/**
+	 * Gets the results of the superposition collapses.
+	 * 
+	 * @return The results of the superposition collapses.
+	 */
+	TArray<FTerrainTileInstanceData> GetTerrainTiles()
+	{
+		return TerrainTiles;
+	}
+
+	/**
+	 * Gets the current shape of the terrain.
+	 * 
+	 * @return The current shape of the terrain.
+	 */
+	FTerrainShape GetTerrainShape()
+	{
+		return Shape;
+	}
 
 	/**
 	 * Determines whether the terrain is finished generating.
@@ -187,7 +206,7 @@ public:
 	 * @param Mode - The method used for deciding which superposition to collapse next.
 	 * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
 	 */
-	FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0);
+	FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0, FTerrainShape CurrentTerrainShape = FTerrainShape());
 
 	/**
 	 * Destructs this and handles thread deletion.
@@ -207,6 +226,7 @@ private:
 	//Whether or not the task has been stopped prematurely.
 	std::atomic_bool bStopped;
 
+
 	//The method used for deciding which superposition to collapse next.
 	UProcedualCollapseMode* CollapseMode;
 	//How many iterations into the future to search for failed superpositions.
@@ -219,8 +239,10 @@ private:
 	TArray<TArray<bool>> BaseSuperPositions;
 
 
+	//Will be written to as superpositions are collapsed.
+	TArray<FTerrainTileInstanceData> TerrainTiles;
 	//The current shape of the terrain.
-	FTerrainShape Shape = FTerrainShape();
+	FTerrainShape Shape;
 	//Whether or not a given tile can connect to a given socket. SuperPositions[Socket to connect to][Tile to add][Socket on tile to connect to].
 	TArray<TArray<TArray<bool>>> SuperPositions = TArray<TArray<TArray<bool>>>();
 	//Whether or not the task is complete.
@@ -242,6 +264,15 @@ private:
 	 * @param SeachDeapth - How many iterations into the future to search.
 	 */
 	bool HasNewCollapseableSuperPositions(FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult, int SearchDepth = 0) const;
+
+	/**
+	 * Refreshes superpositions after a given change in vertices.
+	 *
+	 * @param ShapeVertexGrowth = The number of new vertices in the shape.
+	 * @param ShapeVertexShrinkage = The number of old vertices removed from the shape.
+	 * @param ShapeVertexOffset = The shift in vertex index.
+	 */
+	void RefreshSuperPositions(int ShapeVertexGrowth, int ShapeVertexShrinkage = 0, int ShapeVertexOffset = 0);
 };
 
 /* /\ ========================= /\ *\
