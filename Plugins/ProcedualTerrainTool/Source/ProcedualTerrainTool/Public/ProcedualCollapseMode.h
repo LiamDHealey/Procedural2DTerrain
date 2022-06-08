@@ -51,8 +51,10 @@ class PROCEDUALTERRAINTOOL_API AManualCollapseModeLocationMarker : public AActor
 
 	AManualCollapseModeLocationMarker();
 
-private:
 	void CheakForInvalidMode();
+
+public:
+	UManualCollapseMode* ConnectedMode;
 };
 
 /**
@@ -64,7 +66,9 @@ class PROCEDUALTERRAINTOOL_API UManualCollapseMode : public UProcedualCollapseMo
 	GENERATED_BODY()
 
 	UManualCollapseMode();
+	
 
+public:
 	/** 
 	 * Gets the next super position to collapse on the given shape. Will collapse at Collapse Coords.
 	 * 

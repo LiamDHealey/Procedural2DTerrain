@@ -3,6 +3,9 @@
 
 #include "ProcedualCollapseMode.h"
 
+#include "Components/ChildActorComponent.h"
+#include "TerrainTileData.h"
+
 UProcedualCollapseMode::UProcedualCollapseMode()
 {
 	AActor* OwningActor = Cast<AActor>(GetOuter());
@@ -39,9 +42,9 @@ void UProcedualCollapseMode::DrawGenerationBounds() const
 
 AManualCollapseModeLocationMarker::AManualCollapseModeLocationMarker()
 {
-	RootComponent = CreateDefaultSubobject<USceneComponent>(FName("Root"));
+	RootComponent = CreateDefaultSubobject<UChildActorComponent>(FName("Root"));
 	RootComponent->SetVisibility(true, true);
-	
+
 	SetActorHiddenInGame(true);
 
 	if (IsValid(GetWorld()))
@@ -53,9 +56,17 @@ AManualCollapseModeLocationMarker::AManualCollapseModeLocationMarker()
 
 void AManualCollapseModeLocationMarker::CheakForInvalidMode()
 {
-	if (!(IsValid(Owner) && IsValid(Cast<UManualCollapseMode>(Cast<ATerrainHandler>(Owner)->GenerationMode))))
+	if (!(IsValid(Owner) && IsValid(ConnectedMode)))
 	{
 		Destroy();
+	}
+	else
+	{
+		TSubclassOf<AActor> TargetClass = Cast<ATerrainHandler>(Owner)->SpawnableTiles[ConnectedMode->TileIndex].TileData->ActorClass;
+		if (Cast<UChildActorComponent>(RootComponent)->GetChildActorClass() != TargetClass)
+		{
+			Cast<UChildActorComponent>(RootComponent)->SetChildActorClass(TargetClass);
+		}
 	}
 }
 
@@ -63,7 +74,10 @@ UManualCollapseMode::UManualCollapseMode()
 {
 	if(IsValid(GetWorld()))
 	{
-		CollapseLocation = GetWorld()->SpawnActor<AManualCollapseModeLocationMarker>(TerrainTransform.GetTranslation(), TerrainTransform.GetRotation().Rotator());
+		FActorSpawnParameters SpawnParams = FActorSpawnParameters();
+		SpawnParams.Owner = Cast<AActor>(GetOuter());
+		CollapseLocation = GetWorld()->SpawnActor<AManualCollapseModeLocationMarker>(TerrainTransform.GetTranslation(), TerrainTransform.GetRotation().Rotator(), SpawnParams);
+		CollapseLocation->ConnectedMode = this;
 	}
 }
 
