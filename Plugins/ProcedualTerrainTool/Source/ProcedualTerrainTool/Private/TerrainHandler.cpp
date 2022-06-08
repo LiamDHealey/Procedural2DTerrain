@@ -29,7 +29,7 @@ void ATerrainHandler::BeginGeneration()
 		
 		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainHandler::RefreshTiles, .1, true);
 
-		GenerationMode->DrawGenerationBounds(GetActorTransform());
+		GenerationMode->DrawGenerationBounds();
 	}
 	else
 	{
@@ -187,12 +187,12 @@ void FTerrainGenerationWorker::Shutdown()
  * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
  */
 FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth, FTerrainShape CurrentTerrainShape) :
-	bCompleated(false),
 	bStopped(false),
 	CollapseMode(Mode),
-	Shape(CurrentTerrainShape),
 	CollapsePredictionDepth(PredictionDepth),
-	UseableTiles(Tiles)
+	UseableTiles(Tiles),
+	Shape(CurrentTerrainShape),
+	bCompleated(false)
 { 
 	//Create thread.
 	Thread = FRunnableThread::Create(this, TEXT("FTerrainGenerationWorker"), 0, TPri_BelowNormal);

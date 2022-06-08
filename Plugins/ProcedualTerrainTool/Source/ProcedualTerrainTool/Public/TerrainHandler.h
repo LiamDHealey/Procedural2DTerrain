@@ -14,7 +14,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogTerrainTool, Log, All);
 
 class UTerrainTileData;
 class UProcedualCollapseMode;
-
+class UManualCollapseMode;
 
 
 /* \/ ========================= \/ *\
@@ -29,11 +29,11 @@ struct PROCEDUALTERRAINTOOL_API FTerrainTileInstanceData
 {
 	GENERATED_BODY()
 
-	//The sprite data of this tile.
+	//The index of this tile.
 	UPROPERTY(EditAnywhere)
 	int ShapeIndex;
 
-	//How likely this tile is to spawn.
+	//The merge result that created this tile.
 	UPROPERTY(EditAnywhere)
 	FTerrainShapeMergeResult MergeResult;
 
@@ -58,7 +58,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainTileSpawnData
 {
 	GENERATED_BODY()
 
-	//The sprite data of this tile.
+	//The data of this tile.
 	UPROPERTY(EditAnywhere)
 	UTerrainTileData* TileData = nullptr;
 

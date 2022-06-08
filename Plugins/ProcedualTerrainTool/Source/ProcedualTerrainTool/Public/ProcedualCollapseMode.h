@@ -18,6 +18,8 @@ class PROCEDUALTERRAINTOOL_API UProcedualCollapseMode : public UObject
 	GENERATED_BODY()
 	
 public:
+	UProcedualCollapseMode();
+
 	/** 
 	 * Gets the next super position to collapse on the given shape.
 	 * 
@@ -34,7 +36,23 @@ public:
 	 * 
 	 * @param TerrainTransform - The transform to apply to the bounds.
 	 */
-	virtual void DrawGenerationBounds(FTransform TerrainTransform) const;
+	virtual void DrawGenerationBounds() const;
+
+	FTransform TerrainTransform = FTransform();
+};
+
+/**
+ * Collapses 1 superposition at a time at a given location.
+ */
+UCLASS()
+class PROCEDUALTERRAINTOOL_API AManualCollapseModeLocationMarker : public AActor
+{
+	GENERATED_BODY()
+
+	AManualCollapseModeLocationMarker();
+
+private:
+	void CheakForInvalidMode();
 };
 
 /**
@@ -44,6 +62,8 @@ UCLASS(Meta = (DisplayName = "Manual"))
 class PROCEDUALTERRAINTOOL_API UManualCollapseMode : public UProcedualCollapseMode
 {
 	GENERATED_BODY()
+
+	UManualCollapseMode();
 
 	/** 
 	 * Gets the next super position to collapse on the given shape. Will collapse at Collapse Coords.
@@ -56,9 +76,13 @@ class PROCEDUALTERRAINTOOL_API UManualCollapseMode : public UProcedualCollapseMo
 	 */
 	bool GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const override;
 
-	//The location to collapse the superposition at. X = Socket Index, Y = Index of the terrain tile to add at Socket Index, Z = The Socket Index on the selected tile to match to the selected Socket Index.
+	//The location to collapse the superposition at.
+	UPROPERTY(VisibleAnywhere, Meta = (Category = "Generation Mode Settings", MakeEditWidget = "true"))
+	AManualCollapseModeLocationMarker* CollapseLocation;
+
+	//The index of the tile to add.
 	UPROPERTY(EditAnywhere, Meta = (Category = "Generation Mode Settings"))
-	FIntVector CollapseCoords = FIntVector();
+	int TileIndex = 0;
 };
 
 /**
@@ -85,7 +109,7 @@ class PROCEDUALTERRAINTOOL_API UCircularCollapseMode : public UProcedualCollapse
 	 *
 	 * @param TerrainTransform - The transform to apply to the bounds.
 	 */
-	virtual void DrawGenerationBounds(FTransform TerrainTransform) const override;
+	virtual void DrawGenerationBounds() const override;
 
 	//The radius of the circle to fill.
 	UPROPERTY(EditAnywhere, Meta = (Category = "Generation Mode Settings"))
@@ -116,7 +140,7 @@ class PROCEDUALTERRAINTOOL_API URectangularCollapseMode : public UProcedualColla
 	 *
 	 * @param TerrainTransform - The transform to apply to the bounds.
 	 */
-	virtual void DrawGenerationBounds(FTransform TerrainTransform) const override;
+	virtual void DrawGenerationBounds() const override;
 
 	//The extent of the box to fill.
 	UPROPERTY(EditAnywhere, Meta = (Category = "Generation Mode Settings"))

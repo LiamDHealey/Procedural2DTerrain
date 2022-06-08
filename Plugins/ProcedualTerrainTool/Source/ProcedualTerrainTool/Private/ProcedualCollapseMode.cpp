@@ -3,6 +3,16 @@
 
 #include "ProcedualCollapseMode.h"
 
+UProcedualCollapseMode::UProcedualCollapseMode()
+{
+	AActor* OwningActor = Cast<AActor>(GetOuter());
+	UE_LOG(LogTemp, Warning, TEXT("Owner = %s"), *GetOuter()->GetFName().ToString());
+	if (IsValid(OwningActor))
+	{
+		TerrainTransform = OwningActor->GetActorTransform();
+	}
+}
+
 /**
  * Gets the next super position to collapse on the given shape.
  *
@@ -22,9 +32,39 @@ bool UProcedualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositi
  *
  * @param TerrainTransform - The transform to apply to the bounds.
  */
-void UProcedualCollapseMode::DrawGenerationBounds(FTransform TerrainTransform) const
+void UProcedualCollapseMode::DrawGenerationBounds() const
 {
 	FlushPersistentDebugLines(GetWorld());
+}
+
+AManualCollapseModeLocationMarker::AManualCollapseModeLocationMarker()
+{
+	RootComponent = CreateDefaultSubobject<USceneComponent>(FName("Root"));
+	RootComponent->SetVisibility(true, true);
+	
+	SetActorHiddenInGame(true);
+
+	if (IsValid(GetWorld()))
+	{
+		FTimerHandle TimerHandle;
+		GetWorld()->GetTimerManager().SetTimer(TimerHandle, this, &AManualCollapseModeLocationMarker::CheakForInvalidMode, 1, true);
+	}
+}
+
+void AManualCollapseModeLocationMarker::CheakForInvalidMode()
+{
+	if (!(IsValid(Owner) && IsValid(Cast<UManualCollapseMode>(Cast<ATerrainHandler>(Owner)->GenerationMode))))
+	{
+		Destroy();
+	}
+}
+
+UManualCollapseMode::UManualCollapseMode()
+{
+	if(IsValid(GetWorld()))
+	{
+		CollapseLocation = GetWorld()->SpawnActor<AManualCollapseModeLocationMarker>(TerrainTransform.GetTranslation(), TerrainTransform.GetRotation().Rotator());
+	}
 }
 
 /**
@@ -37,7 +77,65 @@ void UProcedualCollapseMode::DrawGenerationBounds(FTransform TerrainTransform) c
  */
 bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
 {
-	SuperPositionIndex = CollapseCoords;
+	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
+	{
+		//Get socket closest to center
+		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
+		int SocketIndex = 0;
+
+		UE_LOG(LogTemp, Warning, TEXT("CollapseLocation->GetActorLocation() = %s"), *CollapseLocation->GetActorLocation().ToString());
+		float ClosestDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocation->GetActorLocation())));
+		for (int SearchIndex = 1; SearchIndex < CurrentShape.Num(); SearchIndex++)
+		{
+			float SeachDistanceSquared = ((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2).SquaredLength();
+			if (SeachDistanceSquared < ClosestDistanceSquared)
+			{
+				ClosestDistanceSquared = SeachDistanceSquared;
+				SocketIndex = SearchIndex;
+			}
+		}
+
+		//Get possible collapses around selected socket
+		for (int ShapeIndex = 0; ShapeIndex < SuperPositions[SocketIndex].Num(); ShapeIndex++)
+		{
+			for (int FaceIndex = 0; FaceIndex < SuperPositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
+			{
+				if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
+				{
+					if (!PossibleCollapses.Contains(ShapeIndex))
+					{
+						PossibleCollapses.Emplace(ShapeIndex, TArray<int>());
+					}
+
+					PossibleCollapses.Find(ShapeIndex)->Emplace(FaceIndex);
+				}
+			}
+		}
+
+		//End if no valid collapses
+		if (PossibleCollapses.IsEmpty())
+		{
+			FVector2D ErrorLocation = ((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2);
+			//DrawDebugPoint(GetWorld(), TerrainTransform.TransformPosition(FVector(ErrorLocation, 0)), 50, FColor::Red, true);
+			SuperPositionIndex = FIntVector(0, 0, 0);
+			return false;
+		}
+
+		//Collapse superposition
+		int ShapeIndex = FMath::Clamp(TileIndex, 0, CurrentShape.Num());
+		if (ensure(!PossibleCollapses.IsEmpty() && !PossibleCollapses.FindRef(ShapeIndex).IsEmpty()))
+		{
+			SuperPositionIndex = FIntVector(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
+			return false;
+		}
+
+		//Fail for memory loss
+		SuperPositionIndex = FIntVector(0, 0, 0);
+		return false;
+	}
+	//Fail for invalid shapes
+	SuperPositionIndex = FIntVector(0, 0, 0);
+	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
 	return false;
 }
 
@@ -142,7 +240,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
  *
  * @param TerrainTransform - The transform to apply to the bounds.
  */
- void UCircularCollapseMode::DrawGenerationBounds(FTransform TerrainTransform) const
+ void UCircularCollapseMode::DrawGenerationBounds() const
 {
 	 FlushPersistentDebugLines(GetWorld());
 	 DrawDebugCircle(GetWorld(), TerrainTransform.GetTranslation(), Radius, 64, FColor::Magenta, true, 10, 0U, 150, TerrainTransform.GetRotation().GetForwardVector(), TerrainTransform.GetRotation().GetRightVector(), false);
@@ -250,7 +348,7 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
  *
  * @param TerrainTransform - The transform to apply to the bounds.
  */
-void URectangularCollapseMode::DrawGenerationBounds(FTransform TerrainTransform) const
+void URectangularCollapseMode::DrawGenerationBounds() const
 {
 	FlushPersistentDebugLines(GetWorld());
 	DrawDebugBox(GetWorld(), TerrainTransform.GetTranslation(), FVector(Extent, 0), TerrainTransform.GetRotation(), FColor::Magenta, true, 10, 0U, 150);
