@@ -196,7 +196,6 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 	//Fail for invalid shapes
 	SuperPositionIndex = FIntVector(0, 0, 0);
 	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
-	return false;
 }
 
 /* /\ ==================== /\ *\
