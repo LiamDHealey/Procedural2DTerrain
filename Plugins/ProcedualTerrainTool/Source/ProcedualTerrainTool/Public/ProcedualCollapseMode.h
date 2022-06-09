@@ -9,6 +9,10 @@
 
 #include "ProcedualCollapseMode.generated.h"
 
+/* \/ ======================= \/ *\
+|  \/ UProcedualCollapseMode  \/  |
+\* \/ ======================= \/ */
+
 /**
  * A mode determining how superpositions are collapsed.
  */
@@ -18,6 +22,9 @@ class PROCEDUALTERRAINTOOL_API UProcedualCollapseMode : public UObject
 	GENERATED_BODY()
 	
 public:
+	/**
+	 * Initializes the terrain transform.
+	 */
 	UProcedualCollapseMode();
 
 	/** 
@@ -41,21 +48,54 @@ public:
 	FTransform TerrainTransform = FTransform();
 };
 
+/* /\ ======================= /\ *\
+|  /\ UProcedualCollapseMode  /\  |
+\* /\ ======================= /\ */
+
+
+
+/* \/ ================================== \/ *\
+|  \/ AManualCollapseModeLocationMarker  \/  |
+\* \/ ================================== \/ */
+
 /**
- * Collapses 1 superposition at a time at a given location.
+ * Used to select the location to collapse for the manual collapse mode.
  */
 UCLASS()
 class PROCEDUALTERRAINTOOL_API AManualCollapseModeLocationMarker : public AActor
 {
 	GENERATED_BODY()
-
-	AManualCollapseModeLocationMarker();
-
-	void CheakForInvalidMode();
-
 public:
+	//The connection mode that this is marking.
 	UManualCollapseMode* ConnectedMode;
+
+	/**
+	 * Places a tile at the location of this.
+	 */
+	UFUNCTION(CallInEditor)
+	void PlaceTile();
+
+	/**
+	 * Sets up child actor component and invalidation timer.
+	 */
+	AManualCollapseModeLocationMarker();
+private:
+	/**
+	 * Checks to see if this should still exist and updates the child actor.
+	 */
+	UFUNCTION();
+	void CheakForInvalidMode();
 };
+
+/* /\ ================================== /\ *\
+|  /\ AManualCollapseModeLocationMarker  /\  |
+\* /\ ================================== /\ */
+
+
+
+/* \/ ==================== \/ *\
+|  \/ UManualCollapseMode  \/  |
+\* \/ ==================== \/ */
 
 /**
  * Collapses 1 superposition at a time at a given location.
@@ -65,13 +105,15 @@ class PROCEDUALTERRAINTOOL_API UManualCollapseMode : public UProcedualCollapseMo
 {
 	GENERATED_BODY()
 
+	/**
+	 * Initializes the terrain transform && Spawns the CollapseLocationMarker.
+	 */
 	UManualCollapseMode();
-	
 
 public:
-	/** 
-	 * Gets the next super position to collapse on the given shape. Will collapse at Collapse Coords.
-	 * 
+	/**
+	 * Gets the next super position to collapse on the given shape. Will collapse at the location of the CollapseLocationMarker.
+	 *
 	 * @param SuperPositionIndex - Set to the indices of the super position to collapse next.
 	 * @param CurrentShape - The current shape of the terrain.
 	 * @param SuperPositions - The current superposition states of the terrain.
@@ -82,12 +124,22 @@ public:
 
 	//The location to collapse the superposition at.
 	UPROPERTY(VisibleAnywhere, Meta = (Category = "Generation Mode Settings", MakeEditWidget = "true"))
-	AManualCollapseModeLocationMarker* CollapseLocation;
+	AManualCollapseModeLocationMarker* CollapseLocationMarker;
 
 	//The index of the tile to add.
 	UPROPERTY(EditAnywhere, Meta = (Category = "Generation Mode Settings"))
 	int TileIndex = 0;
 };
+
+/* /\ ==================== /\ *\
+|  /\ UManualCollapseMode  /\  |
+\* /\ ==================== /\ */
+
+
+
+/* \/ ====================== \/ *\
+|  \/ UCircularCollapseMode  \/  |
+\* \/ ====================== \/ */
 
 /**
  * Collapses superpositions until a circle of a given radius is filled.
@@ -120,6 +172,16 @@ class PROCEDUALTERRAINTOOL_API UCircularCollapseMode : public UProcedualCollapse
 	float Radius = 1000;
 };
 
+/* /\ ====================== /\ *\
+|  /\ UCircularCollapseMode  /\  |
+\* /\ ====================== /\ */
+
+
+
+/* \/ ========================= \/ *\
+|  \/ URectangularCollapseMode  \/  |
+\* \/ ========================= \/ */
+
 /**
  * Collapses superpositions until a rectangle of a given bounds is filled.
  */
@@ -150,3 +212,7 @@ class PROCEDUALTERRAINTOOL_API URectangularCollapseMode : public UProcedualColla
 	UPROPERTY(EditAnywhere, Meta = (Category = "Generation Mode Settings"))
 	FVector2D Extent = FVector2D(2000, 1000);
 };
+
+/* /\ ========================= /\ *\
+|  /\ URectangularCollapseMode  /\  |
+\* /\ ========================= /\ */

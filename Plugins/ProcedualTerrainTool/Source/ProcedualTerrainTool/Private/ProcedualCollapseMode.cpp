@@ -6,6 +6,13 @@
 #include "Components/ChildActorComponent.h"
 #include "TerrainTileData.h"
 
+/* \/ ======================= \/ *\
+|  \/ UProcedualCollapseMode  \/  |
+\* \/ ======================= \/ */
+
+/**
+ * Initializes the terrain transform.
+ */
 UProcedualCollapseMode::UProcedualCollapseMode()
 {
 	AActor* OwningActor = Cast<AActor>(GetOuter());
@@ -22,6 +29,7 @@ UProcedualCollapseMode::UProcedualCollapseMode()
  * @param SuperPositionIndex - Set to the indices of the super position to collapse next.
  * @param CurrentShape - The current shape of the terrain.
  * @param SuperPositions - The current superposition states of the terrain.
+ * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
 bool UProcedualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
@@ -40,6 +48,27 @@ void UProcedualCollapseMode::DrawGenerationBounds() const
 	FlushPersistentDebugLines(GetWorld());
 }
 
+/* /\ ======================= /\ *\
+|  /\ UProcedualCollapseMode  /\  |
+\* /\ ======================= /\ */
+
+
+
+/* \/ ================================== \/ *\
+|  \/ AManualCollapseModeLocationMarker  \/  |
+\* \/ ================================== \/ */
+
+/**
+ * Places a tile at the location of this.
+ */
+void AManualCollapseModeLocationMarker::PlaceTile()
+{
+	Cast<ATerrainHandler>(Owner)->BeginGeneration();
+}
+
+/**
+ * Sets up child actor component and invalidation timer.
+ */
 AManualCollapseModeLocationMarker::AManualCollapseModeLocationMarker()
 {
 	RootComponent = CreateDefaultSubobject<UChildActorComponent>(FName("Root"));
@@ -54,6 +83,9 @@ AManualCollapseModeLocationMarker::AManualCollapseModeLocationMarker()
 	}
 }
 
+/**
+ * Checks to see if this should still exist and updates the child actor.
+ */
 void AManualCollapseModeLocationMarker::CheakForInvalidMode()
 {
 	if (!(IsValid(Owner) && IsValid(ConnectedMode)))
@@ -70,6 +102,19 @@ void AManualCollapseModeLocationMarker::CheakForInvalidMode()
 	}
 }
 
+/* /\ ================================== /\ *\
+|  /\ AManualCollapseModeLocationMarker  /\  |
+\* /\ ================================== /\ */
+
+
+
+/* \/ ==================== \/ *\
+|  \/ UManualCollapseMode  \/  |
+\* \/ ==================== \/ */
+
+/**
+ * Initializes the terrain transform && Spawns the CollapseLocationMarker.
+ */
 UManualCollapseMode::UManualCollapseMode()
 {
 	if(IsValid(GetWorld()))
@@ -82,11 +127,12 @@ UManualCollapseMode::UManualCollapseMode()
 }
 
 /**
- * Gets the next super position to collapse on the given shape. Will collapse at Collapse Coords.
+ * Gets the next super position to collapse on the given shape. Will collapse at the location of the CollapseLocationMarker.
  *
  * @param SuperPositionIndex - Set to the indices of the super position to collapse next.
  * @param CurrentShape - The current shape of the terrain.
  * @param SuperPositions - The current superposition states of the terrain.
+ * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
 bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
@@ -101,7 +147,7 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 		float ClosestDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocation->GetActorLocation())));
 		for (int SearchIndex = 1; SearchIndex < CurrentShape.Num(); SearchIndex++)
 		{
-			float SeachDistanceSquared = ((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2).SquaredLength();
+			float SeachDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocation->GetActorLocation())));
 			if (SeachDistanceSquared < ClosestDistanceSquared)
 			{
 				ClosestDistanceSquared = SeachDistanceSquared;
@@ -153,12 +199,23 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 	return false;
 }
 
+/* /\ ==================== /\ *\
+|  /\ UManualCollapseMode  /\  |
+\* /\ ==================== /\ */
+
+
+
+/* \/ ====================== \/ *\
+|  \/ UCircularCollapseMode  \/  |
+\* \/ ====================== \/ */
+
 /**
  * Gets the next super position to collapse on the given shape. Will all superpositions within Radius.
  *
  * @param SuperPositionIndex - Set to the indices of the super position to collapse next.
  * @param CurrentShape - The current shape of the terrain.
  * @param SuperPositions - The current superposition states of the terrain.
+ * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
 bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
@@ -259,6 +316,16 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 	 FlushPersistentDebugLines(GetWorld());
 	 DrawDebugCircle(GetWorld(), TerrainTransform.GetTranslation(), Radius, 64, FColor::Magenta, true, 10, 0U, 150, TerrainTransform.GetRotation().GetForwardVector(), TerrainTransform.GetRotation().GetRightVector(), false);
 }
+
+ /* /\ ====================== /\ *\
+ |  /\ UCircularCollapseMode  /\  |
+ \* /\ ====================== /\ */
+
+
+
+ /* \/ ========================= \/ *\
+ |  \/ URectangularCollapseMode  \/  |
+ \* \/ ========================= \/ */
 
 /**
  * Gets the next super position to collapse on the given shape. Will all superpositions within a box with the given extent.
@@ -367,3 +434,7 @@ void URectangularCollapseMode::DrawGenerationBounds() const
 	FlushPersistentDebugLines(GetWorld());
 	DrawDebugBox(GetWorld(), TerrainTransform.GetTranslation(), FVector(Extent, 0), TerrainTransform.GetRotation(), FColor::Magenta, true, 10, 0U, 150);
 }
+
+/* /\ ========================= /\ *\
+|  /\ URectangularCollapseMode  /\  |
+\* /\ ========================= /\ */
