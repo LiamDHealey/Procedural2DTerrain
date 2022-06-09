@@ -83,7 +83,7 @@ private:
 	/**
 	 * Checks to see if this should still exist and updates the child actor.
 	 */
-	UFUNCTION();
+	UFUNCTION()
 	void CheakForInvalidMode();
 };
 
