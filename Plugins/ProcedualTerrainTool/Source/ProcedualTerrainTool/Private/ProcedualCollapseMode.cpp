@@ -32,7 +32,7 @@ UProcedualCollapseMode::UProcedualCollapseMode()
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool UProcedualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
+bool UProcedualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
 {
 	SuperPositionIndex = FIntVector();
 	return false;
@@ -88,7 +88,7 @@ AManualCollapseModeLocationMarker::AManualCollapseModeLocationMarker()
  */
 void AManualCollapseModeLocationMarker::CheakForInvalidMode()
 {
-	if (!(IsValid(Owner) && IsValid(ConnectedMode)))
+	if (!(IsValid(Owner) && IsValid(ConnectedMode) && IsValid(Cast<UManualCollapseMode>(Cast<ATerrainHandler>(Owner)->GenerationMode))))
 	{
 		Destroy();
 	}
@@ -135,8 +135,9 @@ UManualCollapseMode::UManualCollapseMode()
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
+bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
 {
+	ErrorLocation = FVector::ZeroVector;
 	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
 	{
 		//Get socket closest to center
@@ -174,8 +175,8 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 		//End if no valid collapses
 		if (PossibleCollapses.IsEmpty())
 		{
-			FVector2D ErrorLocation = ((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2);
-			//DrawDebugPoint(GetWorld(), TerrainTransform.TransformPosition(FVector(ErrorLocation, 0)), 50, FColor::Red, true);
+			UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
+			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2), 0));
 			SuperPositionIndex = FIntVector(0, 0, 0);
 			return false;
 		}
@@ -217,7 +218,7 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
+bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
 {
 	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
 	{
@@ -256,8 +257,8 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 		//End if no valid collapses
 		if (PossibleCollapses.IsEmpty())
 		{
-			FVector2D ErrorLocation = ((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2);
-			//DrawDebugPoint(GetWorld(), TerrainTransform.TransformPosition(FVector(ErrorLocation, 0)), 50, FColor::Red, true);
+			UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
+			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2), 0));
 			SuperPositionIndex = FIntVector(0, 0, 0);
 			return false;
 		}
@@ -335,7 +336,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles) const
+bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
 {
 	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
 	{
@@ -377,8 +378,7 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 		if (PossibleCollapses.IsEmpty())
 		{
 			UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
-			FVector2D ErrorLocation = ((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2);
-			//DrawDebugPoint(GetWorld(), TerrainTransform.TransformPosition(FVector(ErrorLocation, 0)), 50, FColor::Red, true);
+			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2), 0));
 			SuperPositionIndex = FIntVector(0, 0, 0);
 			return false;
 		}

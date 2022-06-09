@@ -88,6 +88,11 @@ void ATerrainHandler::RefreshTiles()
 			TerrainGenerationWorker = NULL;
 			GetWorldTimerManager().ClearTimer(TileRefreshTimerHandle);
 			FlushPersistentDebugLines(GetWorld());
+
+			if (!GenerationMode->ErrorLocation.IsZero())
+			{
+				DrawDebugPoint(GetWorld(), GenerationMode->ErrorLocation, 50, FColor::Red, true);
+			}
 		}
 	}
 	else
