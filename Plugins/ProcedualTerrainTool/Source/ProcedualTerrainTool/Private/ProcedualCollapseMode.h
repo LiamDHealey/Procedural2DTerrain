@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
 
-#include "TerrainHandler.h"
+#include "TerrainGenerator.h"
 
 #include "ProcedualCollapseMode.generated.h"
 

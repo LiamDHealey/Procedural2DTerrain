@@ -63,7 +63,7 @@ void UProcedualCollapseMode::DrawGenerationBounds() const
  */
 void AManualCollapseModeLocationMarker::PlaceTile()
 {
-	Cast<ATerrainHandler>(Owner)->BeginGeneration();
+	Cast<ATerrainGenerator>(Owner)->BeginGeneration();
 }
 
 /**
@@ -88,13 +88,13 @@ AManualCollapseModeLocationMarker::AManualCollapseModeLocationMarker()
  */
 void AManualCollapseModeLocationMarker::CheakForInvalidMode()
 {
-	if (!(IsValid(Owner) && IsValid(ConnectedMode) && IsValid(Cast<UManualCollapseMode>(Cast<ATerrainHandler>(Owner)->GenerationMode))))
+	if (!(IsValid(Owner) && IsValid(ConnectedMode) && IsValid(Cast<UManualCollapseMode>(Cast<ATerrainGenerator>(Owner)->GenerationMode))))
 	{
 		Destroy();
 	}
 	else
 	{
-		TSubclassOf<AActor> TargetClass = Cast<ATerrainHandler>(Owner)->SpawnableTiles[ConnectedMode->TileIndex].TileData->ActorClass;
+		TSubclassOf<AActor> TargetClass = Cast<ATerrainGenerator>(Owner)->SpawnableTiles[ConnectedMode->TileIndex].TileData->ActorClass;
 		if (Cast<UChildActorComponent>(RootComponent)->GetChildActorClass() != TargetClass)
 		{
 			Cast<UChildActorComponent>(RootComponent)->SetChildActorClass(TargetClass);

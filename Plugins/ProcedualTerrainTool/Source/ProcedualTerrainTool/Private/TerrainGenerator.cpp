@@ -1,6 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "TerrainHandler.h"
+#include "TerrainGenerator.h"
 
 #include "ProcedualCollapseMode.h"
 #include "DrawDebugHelpers.h"
@@ -10,24 +10,30 @@
 
 DEFINE_LOG_CATEGORY(LogTerrainTool);
 
-/* \/ ================ \/ *\
-|  \/ ATerrainHandler  \/  |
-\* \/ ================ \/ */
+/* \/ ================== \/ *\
+|  \/ ATerrainGenerator  \/  |
+\* \/ ================== \/ */
 
-ATerrainHandler::ATerrainHandler()
+/**
+ * Sets up the root component.
+ */
+ATerrainGenerator::ATerrainGenerator()
 {
 	RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	RootComponent->SetMobility(EComponentMobility::Static);
 }
 
-void ATerrainHandler::BeginGeneration()
+/**
+ * Begins the terrain generation process.
+ */
+void ATerrainGenerator::BeginGeneration()
 {
 	if (FPlatformProcess::SupportsMultithreading())
 	{
 		EndGeneration();
 		TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, GenerationMode, PredictionDepth, TerrainShape);
 		
-		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainHandler::RefreshTiles, .1, true);
+		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainGenerator::RefreshTiles, .1, true);
 
 		GenerationMode->DrawGenerationBounds();
 	}
@@ -37,7 +43,10 @@ void ATerrainHandler::BeginGeneration()
 	}
 }
 
-void ATerrainHandler::EndGeneration()
+/**
+ * Stops the generation before the terrain is finished generating.
+ */
+void ATerrainGenerator::EndGeneration()
 {
 	FlushPersistentDebugLines(GetWorld());
 
@@ -46,7 +55,7 @@ void ATerrainHandler::EndGeneration()
 	{
 		if (!TerrainGenerationWorker->IsTerrainFinishedGenerating())
 		{
-			TerrainGenerationWorker->Shutdown();
+			TerrainGenerationWorker->Stop();
 		}
 
 		delete TerrainGenerationWorker;
@@ -56,8 +65,10 @@ void ATerrainHandler::EndGeneration()
 	NumberOfTilesSpawned = 0;
 }
 
-
-void ATerrainHandler::Reset()
+/**
+ * Resets the generation process and deletes all actors already spawned.
+ */
+void ATerrainGenerator::Reset()
 {
 	EndGeneration();
 
@@ -70,7 +81,10 @@ void ATerrainHandler::Reset()
 	TerrainShape = FTerrainShape();
 }
 
-void ATerrainHandler::RefreshTiles()
+/**
+ * Spawns any new tiles created by the worker and shuts down worker if complete.
+ */
+void ATerrainGenerator::RefreshTiles()
 {
 	if (TerrainGenerationWorker)
 	{
@@ -83,7 +97,7 @@ void ATerrainHandler::RefreshTiles()
 		
 		if (TerrainGenerationWorker->IsTerrainFinishedGenerating())
 		{
-			TerrainGenerationWorker->Shutdown();
+			TerrainGenerationWorker->Stop();
 			delete TerrainGenerationWorker;
 			TerrainGenerationWorker = NULL;
 			GetWorldTimerManager().ClearTimer(TileRefreshTimerHandle);
@@ -102,7 +116,12 @@ void ATerrainHandler::RefreshTiles()
 	}
 }
 
-void ATerrainHandler::SpawnTile(FTerrainTileInstanceData TileData)
+/**
+ * Spawns a single tile.
+ *
+ * @param TileData - The data needed to know where and what to spawn.
+ */
+void ATerrainGenerator::SpawnTile(FTerrainTileInstanceData TileData)
 {
 	if (IsValid(SpawnableTiles[TileData.ShapeIndex].TileData->ActorClass.Get()))
 	{
@@ -132,9 +151,9 @@ void ATerrainHandler::SpawnTile(FTerrainTileInstanceData TileData)
 	}
 }
 
-/* /\ ================ /\ *\
-|  /\ ATerrainHandler  /\  |
-\* /\ ================ /\ */
+/* /\ ================== /\ *\
+|  /\ ATerrainGenerator  /\  |
+\* /\ ================== /\ */
 
 
 
@@ -150,37 +169,6 @@ void ATerrainHandler::SpawnTile(FTerrainTileInstanceData TileData)
 bool FTerrainGenerationWorker::IsTerrainFinishedGenerating()
 {
 	return bCompleated;
-}
-
-/**
- * Whether or not this matches the given data. Will mutate this if possible to match the given data.
- *
- * @param UseableTiles - The tiles that will be used to generate the terrain.
- * @param Mode - The method used for deciding which superposition to collapse next.
- * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
- */
-bool FTerrainGenerationWorker::MatchData(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth)
-{
-	if (Tiles != UseableTiles)
-	{
-		return false;
-	}
-
-	CollapseMode = Mode;
-	CollapsePredictionDepth = PredictionDepth;
-	return true;
-}
-
-/**
- * Blocking function that stops the terrain generation and waits for completion.
- */
-void FTerrainGenerationWorker::Shutdown()
-{
-	if (this)
-	{
-		Stop();
-		//Thread->WaitForCompletion();
-	}
 }
 
 /**
@@ -239,6 +227,11 @@ FTerrainGenerationWorker::~FTerrainGenerationWorker()
 	Thread = NULL; 
 }
 
+/**
+ * Begins the process of terrain generation.
+ *
+ * @return true
+ */
 bool FTerrainGenerationWorker::Init()
 {
 	bCompleated = false;
@@ -248,6 +241,11 @@ bool FTerrainGenerationWorker::Init()
 	return true;
 }
 
+/**
+ * Repeatedly collapses superpositions in order to generate the terrain.
+ *
+ * @return 0
+ */
 uint32 FTerrainGenerationWorker::Run()
 { 
 	//Initial wait before starting 
@@ -273,6 +271,9 @@ uint32 FTerrainGenerationWorker::Run()
 	return 0;
 }
 
+/**
+ * Stops the generation process regardless of completion.
+ */
 void FTerrainGenerationWorker::Stop()
 { 
 	bStopped = true;

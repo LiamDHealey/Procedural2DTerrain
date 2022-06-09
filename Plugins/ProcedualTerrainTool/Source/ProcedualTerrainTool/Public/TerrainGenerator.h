@@ -8,7 +8,7 @@
 #include "HAL/Runnable.h"
 
 #include "GameFramework/Actor.h"
-#include "TerrainHandler.generated.h"
+#include "TerrainGenerator.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTerrainTool, Log, All);
 
@@ -37,6 +37,9 @@ struct PROCEDUALTERRAINTOOL_API FTerrainTileInstanceData
 	UPROPERTY(EditAnywhere)
 	FTerrainShapeMergeResult MergeResult;
 
+	/**
+	 * Initializes a FTerrainTileInstanceData.
+	 */
 	FTerrainTileInstanceData(int Index = 0, FTerrainShapeMergeResult MergeData = FTerrainShapeMergeResult()) : ShapeIndex(Index), MergeResult(MergeData)
 	{}
 };
@@ -51,7 +54,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainTileInstanceData
 \* \/ ====================== \/ */
 
 /**
- * Information needed to spawn a terrain tile tile.
+ * Information needed to spawn a terrain tile.
  */
 USTRUCT(BlueprintType)
 struct PROCEDUALTERRAINTOOL_API FTerrainTileSpawnData
@@ -66,6 +69,9 @@ struct PROCEDUALTERRAINTOOL_API FTerrainTileSpawnData
 	UPROPERTY(EditAnywhere, Meta = (ClampMin = "0"))
 	float SpawnWeight = 1;
 
+	/**
+	 * Initializes a FTerrainTileSpawnData.
+	 */
 	FTerrainTileSpawnData()
 	{
 
@@ -83,68 +89,93 @@ struct PROCEDUALTERRAINTOOL_API FTerrainTileSpawnData
 
 
 
-/* \/ ================ \/ *\
-|  \/ ATerrainHandler  \/  |
-\* \/ ================ \/ */
+/* \/ ================== \/ *\
+|  \/ ATerrainGenerator  \/  |
+\* \/ ================== \/ */
 
 /**
- * 
+ * A tool for generating terrain. Takes in a set of tiles and can connect them together to form terrain.
  */
 UCLASS()
-class PROCEDUALTERRAINTOOL_API ATerrainHandler : public AActor
+class PROCEDUALTERRAINTOOL_API ATerrainGenerator : public AActor
 {
 	GENERATED_BODY()
 
 public:
-	ATerrainHandler();
+	/**
+	 * Sets up the root component.
+	 */
+	ATerrainGenerator();
 
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
+	/**
+	 * Begins the terrain generation process.
+	 */
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainGenerator"))
 	void BeginGeneration();
 
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
+	/**
+	 * Stops the generation before the terrain is finished generating.
+	 */
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainGenerator"))
 	void EndGeneration();
 
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainHandler"))
+	/**
+	 * Resets the generation process and deletes all actors already spawned.
+	 */
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainGenerator"))
 	void Reset();
 
+	//The set of tiles that this will use when generating terrain.
 	UPROPERTY(EditAnywhere)
 	TArray<FTerrainTileSpawnData> SpawnableTiles;
 
+	//The method and shape in which the terrain will be generated.
 	UPROPERTY(EditAnywhere, Instanced)
 	UProcedualCollapseMode* GenerationMode = nullptr;
 
-	UPROPERTY(EditAnywhere, Meta = (ClampMin = "0", ClampMax = "3"))
+	//How many steps into the future to look when generating terrain. Higher numbers slow generation but reduce risk of generation failure.
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Meta = (ClampMin = "0", ClampMax = "4"))
 	int PredictionDepth = 0;
 
 private:
 
-	UFUNCTION(Meta = (Category = "TerrainHandler"))
+	/**
+	 * Spawns any new tiles created by the worker and shuts down worker if complete.
+	 */
+	UFUNCTION(Meta = (Category = "TerrainGenerator"))
 	void RefreshTiles();
 
+	/**
+	 * Spawns a single tile.
+	 * 
+	 * @param TileData - The data needed to know where and what to spawn.
+	 */
 	UFUNCTION()
 	void SpawnTile(FTerrainTileInstanceData TileData);
 
+	//An asynchronous worker used to collapse superpositions and generate terrain without freezing the editor.
 	class FTerrainGenerationWorker* TerrainGenerationWorker;
 
+	//The current shape of the terrain.
 	UPROPERTY()
 	FTerrainShape TerrainShape = FTerrainShape();
 
+	//The timer that periodically updates the tiles to match the worker.
 	UPROPERTY()
 	FTimerHandle TileRefreshTimerHandle;
 
-	UPROPERTY()
-	TArray<FTerrainTileInstanceData> Tiles = TArray<FTerrainTileInstanceData>();
-
+	//The number of tiles currently spawned.
 	UPROPERTY()
 	int NumberOfTilesSpawned = 0;
 
+	//All of the actors spawned by this.
 	UPROPERTY()
 	TSet<AActor*> TileActors = TSet<AActor*>();
 };
 
-/* /\ ================ /\ *\
-|  /\ ATerrainHandler  /\  |
-\* /\ ================ /\ */
+/* /\ ================== /\ *\
+|  /\ ATerrainGenerator  /\  |
+\* /\ ================== /\ */
 
 
 /* \/ ========================= \/ *\
@@ -185,21 +216,6 @@ public:
 	bool IsTerrainFinishedGenerating();
 
 	/**
-	 * Whether or not this matches the given data. Will mutate this if possible to match the given data.
-	 *
-	 * @param UseableTiles - The tiles that will be used to generate the terrain.
-	 * @param Mode - The method used for deciding which superposition to collapse next.
-	 * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
-	 * @return Whether or not this matches the given data.
-	 */
-	bool MatchData(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0);
-
-	/**
-	 * Blocking function that stops the terrain generation and waits for completion.
-	 */
-	void Shutdown();
-
-	/**
 	 * Creates a FTerrainGenerationWorker able to compute superposition collapses of the given tiles.
 	 *
 	 * @param UseableTiles - The tiles that will be used to generate the terrain.
@@ -215,9 +231,26 @@ public:
 
 
 	// \/ Begin FRunnable interface. \/ //
+
+	/**
+	 * Begins the process of terrain generation.
+	 * 
+	 * @return true
+	 */
 	virtual bool Init();
+
+	/**
+	 * Repeatedly collapses superpositions in order to generate the terrain.
+	 * 
+	 * @return 0
+	 */
 	virtual uint32 Run();
+
+	/**
+	 * Stops the generation process regardless of completion.
+	 */
 	virtual void Stop();
+
 	// /\  End FRunnable interface.  /\ //
 
 private:
