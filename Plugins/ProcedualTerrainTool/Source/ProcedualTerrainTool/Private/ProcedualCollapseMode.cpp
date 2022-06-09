@@ -121,8 +121,8 @@ UManualCollapseMode::UManualCollapseMode()
 	{
 		FActorSpawnParameters SpawnParams = FActorSpawnParameters();
 		SpawnParams.Owner = Cast<AActor>(GetOuter());
-		CollapseLocation = GetWorld()->SpawnActor<AManualCollapseModeLocationMarker>(TerrainTransform.GetTranslation(), TerrainTransform.GetRotation().Rotator(), SpawnParams);
-		CollapseLocation->ConnectedMode = this;
+		CollapseLocationMarker = GetWorld()->SpawnActor<AManualCollapseModeLocationMarker>(TerrainTransform.GetTranslation(), TerrainTransform.GetRotation().Rotator(), SpawnParams);
+		CollapseLocationMarker->ConnectedMode = this;
 	}
 }
 
@@ -143,11 +143,10 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
 		int SocketIndex = 0;
 
-		UE_LOG(LogTemp, Warning, TEXT("CollapseLocation->GetActorLocation() = %s"), *CollapseLocation->GetActorLocation().ToString());
-		float ClosestDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocation->GetActorLocation())));
+		float ClosestDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocationMarker->GetActorLocation())));
 		for (int SearchIndex = 1; SearchIndex < CurrentShape.Num(); SearchIndex++)
 		{
-			float SeachDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocation->GetActorLocation())));
+			float SeachDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocationMarker->GetActorLocation())));
 			if (SeachDistanceSquared < ClosestDistanceSquared)
 			{
 				ClosestDistanceSquared = SeachDistanceSquared;
