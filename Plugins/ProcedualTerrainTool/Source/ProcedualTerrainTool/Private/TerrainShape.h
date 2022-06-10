@@ -29,7 +29,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 
 	//The index of this socket. Will only connect to sockets with the same index. Negative Indices will never connect.
 	UPROPERTY(VisibleAnywhere)
-	int SocketIndex = 0;
+	FName Type = FName();
 
 	//The length of this socket. Will only connect to sockets with the same length.
 	UPROPERTY(VisibleAnywhere)
@@ -52,9 +52,9 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	 * @param SecondVertex - The second vertex defining the edge of this socket.
 	 * @param NextVertex - The vertex after the SecondVertex.
 	 */
-	FTerrainSocket(int Index = -1, FVector2D PreviousVertex = FVector2D(), FVector2D FirstVertex = FVector2D(), FVector2D SecondVertex = FVector2D(), FVector2D NextVertex = FVector2D())
+	FTerrainSocket(FName SocketType = FName(), FVector2D PreviousVertex = FVector2D(), FVector2D FirstVertex = FVector2D(), FVector2D SecondVertex = FVector2D(), FVector2D NextVertex = FVector2D())
 	{
-		SocketIndex = Index;
+		Type = SocketType;
 		Length = FVector2D::Distance(FirstVertex, SecondVertex);
 
 		FVector2D FP = (PreviousVertex - FirstVertex).GetSafeNormal();
@@ -103,7 +103,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	 */
 	EConnectionResult CanConnectToSocket(FTerrainSocket Other) const
 	{
-		if (SocketIndex < 0 || SocketIndex != Other.SocketIndex || !FMath::IsNearlyEqual(Length, Other.Length, KINDA_SMALL_NUMBER) || SecondAngle + Other.FirstAngle > TWO_PI + KINDA_SMALL_NUMBER || FirstAngle + Other.SecondAngle > TWO_PI + KINDA_SMALL_NUMBER)
+		if (Type == FName("NeverConnect") || Type != Other.Type || !FMath::IsNearlyEqual(Length, Other.Length, KINDA_SMALL_NUMBER) || SecondAngle + Other.FirstAngle > TWO_PI + KINDA_SMALL_NUMBER || FirstAngle + Other.SecondAngle > TWO_PI + KINDA_SMALL_NUMBER)
 		{
 			return EConnectionResult::No;
 		}
@@ -132,7 +132,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 
 	bool operator==(const FTerrainSocket& OtherSocket) const
 	{
-		return SocketIndex == OtherSocket.SocketIndex && Length == OtherSocket.Length && FirstAngle == OtherSocket.FirstAngle && SecondAngle == OtherSocket.SecondAngle;
+		return Type == OtherSocket.Type && Length == OtherSocket.Length && FirstAngle == OtherSocket.FirstAngle && SecondAngle == OtherSocket.SecondAngle;
 	}
 };
 
@@ -179,23 +179,23 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	//Constructs a terrain shape from the given terrain's geometry.
 	FTerrainShape(TArray<FVector2D> TerrainGeometery = TArray<FVector2D>())
 	{
-		TArray<int> FaceIndices = TArray<int>();
-		FaceIndices.SetNumZeroed(TerrainGeometery.Num());
-		FTerrainShape(TerrainGeometery, FaceIndices);
+		TArray<FName> FaceTypes = TArray<FName>();
+		FaceTypes.SetNumZeroed(TerrainGeometery.Num());
+		FTerrainShape(TerrainGeometery, FaceTypes);
 	}
 
 	//Constructs a terrain shape from the given terrain's geometry and face indices.
-	FTerrainShape(TArray<FVector2D> TerrainGeometery, TArray<int> FaceIndices)
+	FTerrainShape(TArray<FVector2D> TerrainGeometery, TArray<FName> FaceTypes)
 	{
 		if (TerrainGeometery.IsEmpty())
 		{
 			return;
 		}
 
-		FaceIndices.SetNumZeroed(TerrainGeometery.Num());
+		FaceTypes.SetNumZeroed(TerrainGeometery.Num());
 		for (int GeoIndex = 1; GeoIndex <= TerrainGeometery.Num(); GeoIndex++)
 		{
-			FTerrainSocket NewSocket = FTerrainSocket(FaceIndices[GeoIndex % FaceIndices.Num()], TerrainGeometery[GeoIndex - 1], TerrainGeometery[GeoIndex % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 1) % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 2) % TerrainGeometery.Num()]);
+			FTerrainSocket NewSocket = FTerrainSocket(FaceTypes[GeoIndex % FaceTypes.Num()], TerrainGeometery[GeoIndex - 1], TerrainGeometery[GeoIndex % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 1) % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 2) % TerrainGeometery.Num()]);
 			ShapeSockets.Emplace(NewSocket);
 			Vertices.Emplace(TerrainGeometery[GeoIndex % TerrainGeometery.Num()]);
 		}

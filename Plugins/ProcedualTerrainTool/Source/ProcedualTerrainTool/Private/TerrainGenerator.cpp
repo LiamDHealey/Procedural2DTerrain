@@ -199,7 +199,7 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>
 
 	for (FTerrainTileSpawnData EachUseableTile : UseableTiles)
 	{
-		TileShapes.Emplace(FTerrainShape(EachUseableTile.TileData->Verticies, EachUseableTile.TileData->FaceIndices));
+		TileShapes.Emplace(FTerrainShape(EachUseableTile.TileData->Verticies, EachUseableTile.TileData->FaceTypes));
 
 		TArray<bool> Faces = TArray<bool>();
 		Faces.Init(true, EachUseableTile.TileData->Verticies.Num());

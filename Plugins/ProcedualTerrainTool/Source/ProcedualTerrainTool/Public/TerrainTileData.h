@@ -26,5 +26,5 @@ public:
 
 	//The indexes of each face of the bounds of this actor. Used for determining if tiles can connect.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<int> FaceIndices;
+	TArray<FName> FaceTypes;
 };
