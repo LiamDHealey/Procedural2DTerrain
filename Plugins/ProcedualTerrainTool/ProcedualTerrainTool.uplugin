@@ -10,7 +10,7 @@
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "",
-	"CanContainContent": false,
+	"CanContainContent": true,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
 	"Installed": false,
@@ -19,12 +19,6 @@
 			"Name": "ProcedualTerrainTool",
 			"Type": "Editor",
 			"LoadingPhase": "Default"
-		}
-	],
-	"Plugins": [
-		{
-			"Name": "Paper2D",
-			"Enabled": true
 		}
 	]
 }
