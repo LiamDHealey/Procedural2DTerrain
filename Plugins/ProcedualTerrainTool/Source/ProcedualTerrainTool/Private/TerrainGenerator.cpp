@@ -28,18 +28,25 @@ ATerrainGenerator::ATerrainGenerator()
  */
 void ATerrainGenerator::BeginGeneration()
 {
-	if (FPlatformProcess::SupportsMultithreading())
+	if (IsValid(GenerationMode))
 	{
-		EndGeneration();
-		TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, GenerationMode, PredictionDepth, TerrainShape);
-		
-		GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainGenerator::RefreshTiles, .1, true);
+		if (FPlatformProcess::SupportsMultithreading())
+		{
+			EndGeneration();
+			TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, GenerationMode, PredictionDepth, TerrainShape);
 
-		GenerationMode->DrawGenerationBounds();
+			GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainGenerator::RefreshTiles, .1, true);
+
+			GenerationMode->DrawGenerationBounds();
+		}
+		else
+		{
+			UE_LOG(LogTerrainTool, Error, TEXT("Platform does not support multi threading"));
+		}
 	}
 	else
 	{
-		UE_LOG(LogTerrainTool, Error, TEXT("Platform does not support multi threading"));
+		UE_LOG(LogTerrainTool, Error, TEXT("Select a generation mode"));
 	}
 }
 

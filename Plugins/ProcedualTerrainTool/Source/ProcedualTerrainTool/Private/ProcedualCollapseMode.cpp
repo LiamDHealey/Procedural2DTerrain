@@ -156,19 +156,17 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 		}
 
 		//Get possible collapses around selected socket
-		for (int ShapeIndex = 0; ShapeIndex < SuperPositions[SocketIndex].Num(); ShapeIndex++)
+		int ShapeIndex = FMath::Clamp(TileIndex, 0, SpawnableTiles.Num());
+		for (int FaceIndex = 0; FaceIndex < SuperPositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
 		{
-			for (int FaceIndex = 0; FaceIndex < SuperPositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
+			if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
 			{
-				if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
+				if (!PossibleCollapses.Contains(ShapeIndex))
 				{
-					if (!PossibleCollapses.Contains(ShapeIndex))
-					{
-						PossibleCollapses.Emplace(ShapeIndex, TArray<int>());
-					}
-
-					PossibleCollapses.Find(ShapeIndex)->Emplace(FaceIndex);
+					PossibleCollapses.Emplace(ShapeIndex, TArray<int>());
 				}
+
+				PossibleCollapses.Find(ShapeIndex)->Emplace(FaceIndex);
 			}
 		}
 
@@ -177,12 +175,11 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 		{
 			UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
 			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2), 0));
-			SuperPositionIndex = FIntVector(0, 0, 0);
+			SuperPositionIndex = FIntVector(0, FMath::Clamp(TileIndex, 0, SpawnableTiles.Num()), 0);
 			return false;
 		}
 
 		//Collapse superposition
-		int ShapeIndex = FMath::Clamp(TileIndex, 0, CurrentShape.Num());
 		if (ensure(!PossibleCollapses.IsEmpty() && !PossibleCollapses.FindRef(ShapeIndex).IsEmpty()))
 		{
 			SuperPositionIndex = FIntVector(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
@@ -190,12 +187,12 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 		}
 
 		//Fail for memory loss
-		SuperPositionIndex = FIntVector(0, 0, 0);
+		SuperPositionIndex = FIntVector(0, FMath::Clamp(TileIndex, 0, SpawnableTiles.Num()), 0);
 		return false;
 	}
 	//Fail for invalid shapes
-	SuperPositionIndex = FIntVector(0, 0, 0);
-	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
+	SuperPositionIndex = FIntVector(0, FMath::Clamp(TileIndex, 0, SpawnableTiles.Num()), 0);
+	return false;
 }
 
 /* /\ ==================== /\ *\

@@ -103,7 +103,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	 */
 	EConnectionResult CanConnectToSocket(FTerrainSocket Other) const
 	{
-		if (Type == FName("NeverConnect") || Type != Other.Type || !FMath::IsNearlyEqual(Length, Other.Length, KINDA_SMALL_NUMBER) || SecondAngle + Other.FirstAngle > TWO_PI + KINDA_SMALL_NUMBER || FirstAngle + Other.SecondAngle > TWO_PI + KINDA_SMALL_NUMBER)
+		if (Type != Other.Type || !FMath::IsNearlyEqual(Length, Other.Length, KINDA_SMALL_NUMBER) || SecondAngle + Other.FirstAngle > TWO_PI + KINDA_SMALL_NUMBER || FirstAngle + Other.SecondAngle > TWO_PI + KINDA_SMALL_NUMBER)
 		{
 			return EConnectionResult::No;
 		}

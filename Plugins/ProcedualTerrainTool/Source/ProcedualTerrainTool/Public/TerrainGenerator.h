@@ -157,7 +157,7 @@ private:
 	class FTerrainGenerationWorker* TerrainGenerationWorker;
 
 	//The current shape of the terrain.
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere)
 	FTerrainShape TerrainShape = FTerrainShape();
 
 	//The timer that periodically updates the tiles to match the worker.
