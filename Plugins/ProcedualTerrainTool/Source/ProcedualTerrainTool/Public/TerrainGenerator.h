@@ -133,6 +133,11 @@ public:
 	UPROPERTY(EditAnywhere, Instanced)
 	UProcedualCollapseMode* GenerationMode = nullptr;
 
+
+	//The method and shape in which the terrain will be generated.
+	UPROPERTY(EditAnywhere)
+	bool bGenerateUntilSuccessful = false;
+
 	//How many steps into the future to look when generating terrain. Higher numbers slow generation but reduce risk of generation failure.
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Meta = (ClampMin = "0", ClampMax = "4"))
 	int PredictionDepth = 0;
@@ -157,7 +162,7 @@ private:
 	class FTerrainGenerationWorker* TerrainGenerationWorker;
 
 	//The current shape of the terrain.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	FTerrainShape TerrainShape = FTerrainShape();
 
 	//The timer that periodically updates the tiles to match the worker.

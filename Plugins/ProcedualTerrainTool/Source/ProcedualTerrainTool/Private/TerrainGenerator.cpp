@@ -112,7 +112,15 @@ void ATerrainGenerator::RefreshTiles()
 
 			if (!GenerationMode->ErrorLocation.IsZero())
 			{
-				DrawDebugPoint(GetWorld(), GenerationMode->ErrorLocation, 50, FColor::Red, true);
+				if (bGenerateUntilSuccessful)
+				{
+					Reset();
+					BeginGeneration();
+				}
+				else
+				{
+					DrawDebugPoint(GetWorld(), GenerationMode->ErrorLocation, 50, FColor::Red, true);
+				}
 			}
 		}
 	}
