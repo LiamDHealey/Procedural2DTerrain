@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 
-#include "ProcedualTerrainToolMath.h"
+#include "ProcedualTerrainToolFunctionLibraries.h"
 
 #include "TerrainShape.generated.h"
 
