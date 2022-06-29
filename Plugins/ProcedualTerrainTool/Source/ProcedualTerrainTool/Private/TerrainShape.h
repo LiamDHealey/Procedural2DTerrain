@@ -22,25 +22,25 @@ enum class EConnectionResult : uint8
 /**
  * A socket storing data relevant for terrain piece connections.
  */
-USTRUCT(BlueprintType)
+USTRUCT()
 struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 {
 	GENERATED_BODY()
 
 	//The index of this socket. Will only connect to sockets with the same index. Negative Indices will never connect.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	FName Type = FName();
 
 	//The length of this socket. Will only connect to sockets with the same length.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	float Length = 1;
 
 	//The angle this socket blocks around its first vertex.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	float FirstAngle = 2 * PI;
 
 	//The angle this socket blocks around its second vertex.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	float SecondAngle = 2 * PI;
 
 	/**
@@ -139,7 +139,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 /**
  * Stores the results of a terrain shape merge.
  */
-USTRUCT(BlueprintType)
+USTRUCT()
 struct PROCEDUALTERRAINTOOL_API FTerrainShapeMergeResult
 {
 	GENERATED_BODY()
@@ -163,17 +163,17 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShapeMergeResult
 /**
  * Stores a piece of terrain's shape and its sockets.
  */
-USTRUCT(BlueprintType)
+USTRUCT()
 struct PROCEDUALTERRAINTOOL_API FTerrainShape
 {
 	GENERATED_BODY()
 
 	//Stores all of the sockets in this shape.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	TArray<FTerrainSocket> ShapeSockets = TArray<FTerrainSocket>();
 
 	//Stores all of the vertices of this shape.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	TArray<FVector2D> Vertices = TArray<FVector2D>();
 
 	//Constructs a terrain shape from the given terrain's geometry.
