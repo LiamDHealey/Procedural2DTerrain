@@ -22,77 +22,109 @@ enum class EConnectionResult : uint8
 /**
  * A socket storing data relevant for terrain piece connections.
  */
-USTRUCT(BlueprintType)
-struct PROCEDUALTERRAINTOOL_API FTerrainSocket
+class FTerrainVertex
 {
-	GENERATED_BODY()
+public:
+	//The location of this vertex relative to the terrain.
+	FVector2D Location = FVector2D::ZeroVector;
 
-	//The index of this socket. Will only connect to sockets with the same index. Negative Indices will never connect.
-	UPROPERTY(VisibleAnywhere)
+	//The type of socket. Will only connect to sockets with the same type.
 	FName Type = FName();
 
-	//The length of this socket. Will only connect to sockets with the same length.
-	UPROPERTY(VisibleAnywhere)
+	//The length of this between this and the next vertex. Will only connect to vertices with the same length.
 	float Length = 1;
 
 	//The angle this socket blocks around its first vertex.
-	UPROPERTY(VisibleAnywhere)
-	float FirstAngle = 2 * PI;
+	float Angle = 2 * PI;
 
-	//The angle this socket blocks around its second vertex.
-	UPROPERTY(VisibleAnywhere)
-	float SecondAngle = 2 * PI;
+	//The vertex before this one in the shape.
+	FTerrainVertex* LastVertex = nullptr;
+
+	//The vertex after this one in the shape.
+	FTerrainVertex* NextVertex = nullptr;
+
+	FTerrainVertex(TArray<FVector2D> VertexLocations, TArray<FName> FaceTypes)
+	{
+		if (VertexLocations.Num() < 3)
+		{
+			return;
+		}
+		FaceTypes.SetNum(VertexLocations.Num());
+
+		FTerrainVertex(FaceTypes[0], VertexLocations[VertexLocations.Num() - 1], VertexLocations[0], VertexLocations[1]);
+		FTerrainVertex* LastInitVertex = this;
+		for (int Index = 1; Index < VertexLocations.Num(); Index++)
+		{
+			LastInitVertex->NextVertex = new FTerrainVertex(FaceTypes[Index], VertexLocations[Index - 1], VertexLocations[Index % VertexLocations.Num()], VertexLocations[(Index + 1) % VertexLocations.Num()], LastVertex);
+			LastInitVertex = LastInitVertex->NextVertex;
+		}
+
+		LastVertex = LastInitVertex;
+	}
 
 	/**
 	 * Constructs a socket given terrain geometry and an index.
 	 * 
-	 * @param Index - The index of this socket. Will only connect to sockets with the same index. Negative Indices will never connect.
-	 * @param PreviousVertex - The vertex prior to the FirstVertex.
-	 * @param FirstVertex - The first vertex defining the edge of this socket.
-	 * @param SecondVertex - The second vertex defining the edge of this socket.
-	 * @param NextVertex - The vertex after the SecondVertex.
+	 * @param Index - The type of socket. Will only connect to sockets with the same type.
+	 * @param PreviousVertex - The vertex prior to this vertex.
+	 * @param Vertex - Location of this vertex.
+	 * @param NextVertex - The vertex after this vertex.
 	 */
-	FTerrainSocket(FName SocketType = FName(), FVector2D PreviousVertex = FVector2D(), FVector2D FirstVertex = FVector2D(), FVector2D SecondVertex = FVector2D(), FVector2D NextVertex = FVector2D())
+	FTerrainVertex(FName SocketType = FName(), FVector2D PreviousVertexLocation = FVector2D(), FVector2D VertexLocation = FVector2D(), FVector2D NextVertexLocation = FVector2D(), FTerrainVertex* PreviousVertex = nullptr)
 	{
+		Location = VertexLocation;
 		Type = SocketType;
-		Length = FVector2D::Distance(FirstVertex, SecondVertex);
+		Length = FVector2D::Distance(VertexLocation, NextVertexLocation);
 
-		FVector2D FP = (PreviousVertex - FirstVertex).GetSafeNormal();
-		FVector2D FS = (SecondVertex - FirstVertex).GetSafeNormal();
-		FVector2D SN = (NextVertex - SecondVertex).GetSafeNormal();
-		FVector2D SF = (FirstVertex - SecondVertex).GetSafeNormal();
+		FVector2D VP = (PreviousVertexLocation - VertexLocation).GetSafeNormal();
+		FVector2D VN = (NextVertexLocation - VertexLocation).GetSafeNormal();
 		
-		FirstAngle = FMath::Acos(FP | FS);
-		if ((FP ^ FS) > 0)
+		Angle = FMath::Acos(VP | VN);
+		if ((VP ^ VN) > 0)
 		{
-			FirstAngle = TWO_PI - FirstAngle;
-		}
-
-		SecondAngle = FMath::Acos(SF | SN);
-		if ((SF ^ SN) > 0)
-		{
-			SecondAngle = TWO_PI - SecondAngle;
+			Angle = TWO_PI - Angle;
 		}
 	}
 
+	FTerrainVertex(const FTerrainVertex& Other)
+	{
+		Location = Other.Location;
+		Type = Other.Type;
+		Length = Other.Length;
+		Angle = Other.Angle;
+
+		FTerrainVertex* LastInitVertex = this;
+		for (FTerrainVertex* VertexToCopy = Other.NextVertex; VertexToCopy != Other.NextVertex; VertexToCopy = VertexToCopy->NextVertex)
+		{
+			LastInitVertex->NextVertex = new FTerrainVertex(VertexToCopy->Location, VertexToCopy->Type, VertexToCopy->Length, VertexToCopy->Angle);
+			LastInitVertex = LastInitVertex->NextVertex;
+		}
+
+		LastVertex = LastInitVertex;
+	}
+
+	FTerrainVertex(FVector2D VertexLocation, FName VertexType, float VertexLength, float VertexAngle)
+	{
+		Location = VertexLocation;
+		Type = VertexType;
+		Length = VertexLength;
+		Angle = VertexAngle;
+	}
+
+	~FTerrainVertex()
+	{
+		LastVertex->NextVertex = NextVertex;
+		NextVertex->LastVertex = LastVertex;
+	}
+
 	/**
-	 * Increases the first angle.
+	 * Increases the angle.
 	 * 
 	 * @param Amount - The amount to increase the first angle by.
 	 */
-	void IncreaseFirstAngle(float Amount)
+	void IncreaseAngle(float Amount)
 	{
-		FirstAngle += Amount;
-	}
-
-	/**
-	 * Increases the second angle.
-	 *
-	 * @param Amount - The amount to increase the second angle by.
-	 */
-	void IncreaseSecondAngle(float Amount)
-	{
-		SecondAngle += Amount;
+		Angle += Amount;
 	}
 
 	/**
@@ -101,15 +133,24 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 	 * @param Other - The other socket to test.
 	 * @return Whether or not this and Other can connect.
 	 */
-	EConnectionResult CanConnectToSocket(FTerrainSocket Other) const
+	static EConnectionResult CanVerticesConnect(FTerrainVertex* FirstShapeVertex, FTerrainVertex* SecondShapeVertex)
 	{
-		if (Type != Other.Type || !FMath::IsNearlyEqual(Length, Other.Length, KINDA_SMALL_NUMBER) || SecondAngle + Other.FirstAngle > TWO_PI + KINDA_SMALL_NUMBER || FirstAngle + Other.SecondAngle > TWO_PI + KINDA_SMALL_NUMBER)
+		FTerrainVertex* FirstShapeNextVertex = FirstShapeVertex->NextVertex;
+		FTerrainVertex* SecondShapePreviousVertex = SecondShapeVertex->LastVertex;
+		if (
+			//Types aren't the same.
+			FirstShapeVertex->Type != FirstShapeNextVertex->Type || FirstShapeVertex->Type != SecondShapeVertex->Type  || FirstShapeVertex->Type != SecondShapePreviousVertex->Type ||
+			//Lengths aren't the same.
+			!FMath::IsNearlyEqual(FirstShapeVertex->Length, SecondShapeVertex->Length, KINDA_SMALL_NUMBER) ||
+			//Angles can't merge.
+			FirstShapeVertex->Angle + SecondShapeVertex->Angle > TWO_PI + KINDA_SMALL_NUMBER || FirstShapeNextVertex->Angle + SecondShapePreviousVertex->Angle > TWO_PI + KINDA_SMALL_NUMBER
+			)
 		{
 			return EConnectionResult::No;
 		}
 
-		bool bCheckNext = FMath::IsNearlyEqual(SecondAngle + Other.FirstAngle, TWO_PI, KINDA_SMALL_NUMBER);
-		bool bCheckPrevious = FMath::IsNearlyEqual(FirstAngle + Other.SecondAngle, TWO_PI, KINDA_SMALL_NUMBER);
+		bool bCheckNext = FMath::IsNearlyEqual(FirstShapeVertex->Angle + SecondShapeVertex->Angle, TWO_PI, KINDA_SMALL_NUMBER);
+		bool bCheckPrevious = FMath::IsNearlyEqual(FirstShapeNextVertex->Angle + SecondShapePreviousVertex->Angle, TWO_PI, KINDA_SMALL_NUMBER);
 
 		switch ((bCheckNext)+(2 * bCheckPrevious))
 		{
@@ -130,9 +171,9 @@ struct PROCEDUALTERRAINTOOL_API FTerrainSocket
 		}
 	}
 
-	bool operator==(const FTerrainSocket& OtherSocket) const
+	bool operator==(const FTerrainVertex& OtherVertex) const
 	{
-		return Type == OtherSocket.Type && Length == OtherSocket.Length && FirstAngle == OtherSocket.FirstAngle && SecondAngle == OtherSocket.SecondAngle;
+		return Location == OtherVertex.Location && Type == OtherVertex.Type && Length == OtherVertex.Length && Angle == OtherVertex.Angle;
 	}
 };
 
@@ -146,18 +187,6 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShapeMergeResult
 
 	//The transform applied to the other shape.
 	FTransform2D Transform = FTransform2D();
-
-	//The change of the indices of the original shape.
-	UPROPERTY()
-	int Offset = 0;
-		
-	//The number of new vertices gained during the merge.
-	UPROPERTY()
-	int Growth = 0;
-
-	//The number of old vertices lost during the merge.
-	UPROPERTY()
-	int Shrinkage = 0;
 };
 
 /**
@@ -168,19 +197,14 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 {
 	GENERATED_BODY()
 
-	//Stores all of the sockets in this shape.
-	UPROPERTY(VisibleAnywhere)
-	TArray<FTerrainSocket> ShapeSockets = TArray<FTerrainSocket>();
-
 	//Stores all of the vertices of this shape.
-	UPROPERTY(VisibleAnywhere)
-	TArray<FVector2D> Vertices = TArray<FVector2D>();
+	FTerrainVertex* InitialVertex = nullptr;
 
 	//Constructs a terrain shape from the given terrain's geometry.
 	FTerrainShape(TArray<FVector2D> TerrainGeometery = TArray<FVector2D>())
 	{
 		TArray<FName> FaceTypes = TArray<FName>();
-		FaceTypes.SetNumZeroed(TerrainGeometery.Num());
+		FaceTypes.Init(TEXT("Default"), TerrainGeometery.Num());
 		FTerrainShape(TerrainGeometery, FaceTypes);
 	}
 
@@ -192,32 +216,9 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 			return;
 		}
 
-		FaceTypes.SetNumZeroed(TerrainGeometery.Num());
-		for (int GeoIndex = 1; GeoIndex <= TerrainGeometery.Num(); GeoIndex++)
-		{
-			FTerrainSocket NewSocket = FTerrainSocket(FaceTypes[GeoIndex % FaceTypes.Num()], TerrainGeometery[GeoIndex - 1], TerrainGeometery[GeoIndex % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 1) % TerrainGeometery.Num()], TerrainGeometery[(GeoIndex + 2) % TerrainGeometery.Num()]);
-			ShapeSockets.Emplace(NewSocket);
-			Vertices.Emplace(TerrainGeometery[GeoIndex % TerrainGeometery.Num()]);
-		}
+		InitialVertex = new FTerrainVertex(TerrainGeometery, FaceTypes);
 	}
-
-	//Constructs a terrain shape from the given sockets.
-	FTerrainShape(TArray<FVector2D> TerrainGeometery, TArray<FTerrainSocket> Sockets)
-	{
-		Vertices = TArray<FVector2D>(TerrainGeometery);
-		ShapeSockets = TArray<FTerrainSocket>(Sockets);
-	}
-
-	/**
-	 * Gets the number of sockets this shape has.
-	 * 
-	 * @return The number of sockets this shape has.
-	 */
-	int Num() const
-	{
-		return ShapeSockets.Num();
-	}
-
+	
 	/**
 	 * Determines whether this shape can merge with another.
 	 *
@@ -226,38 +227,35 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	 * @param FaceIndex - The index of the face on this the other shape to start the merge at.
 	 * @return Whether or not this shape can be merged with the other shape.
 	 */
-	bool MergeShape(int FaceIndex, FTerrainShape Other, int OtherFaceIndex) const
+	bool MergeShape(FTerrainVertex* Vertex, FTerrainShape Other, FTerrainVertex* OtherVertex) const
 	{
 		//Account for empty shapes.
-		if (ShapeSockets.IsEmpty() && !Other.ShapeSockets.IsEmpty())
+		if (!(InitialVertex->LastVertex && InitialVertex->NextVertex) && (Other.InitialVertex->LastVertex && Other.InitialVertex->NextVertex))
 		{
-
 			return true;
 		}
 
 		//Fail Invalid Merges
-		if (Other.ShapeSockets.IsEmpty() || !ShapeSockets.IsValidIndex(FaceIndex) || !Other.ShapeSockets.IsValidIndex(OtherFaceIndex))
+		if (!(Other.InitialVertex->LastVertex && Other.InitialVertex->NextVertex) || !Vertex || !OtherVertex)
 		{
 			return false;
 		}
 
 		// \/ Detect if merge is possible \/ //
 
-
 		bool bClockwise = false;
 		bool bSearchClockwise = true;
 		do
 		{
-			//Reset indices
-
-			int SearchIndex = UPTTMath::Mod(FaceIndex + bClockwise, Num());
-			int OtherSearchIndex = UPTTMath::Mod(OtherFaceIndex - bClockwise, Other.Num());
+			//Reset search
+			FTerrainVertex* SearchVertex = bClockwise ? Vertex->NextVertex : Vertex;
+			FTerrainVertex* SearchOtherVertex = bClockwise ? OtherVertex->LastVertex : OtherVertex;
 
 			//Search all of shapes sockets to detect if connection is possible
 			do
 			{
 				//Test socket connectivity
-				switch (ShapeSockets[SearchIndex].CanConnectToSocket(Other.ShapeSockets[OtherSearchIndex]))
+				switch (FTerrainVertex::CanVerticesConnect(SearchVertex, SearchOtherVertex))
 				{
 				case EConnectionResult::No:
 					return false;
@@ -297,11 +295,11 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 					break;
 				}
 
-				//Iterate Indices
-				SearchIndex = UPTTMath::Mod(SearchIndex + (bClockwise ? 1 : -1), Num());
-				OtherSearchIndex = UPTTMath::Mod(OtherSearchIndex + (!bClockwise ? 1 : -1), Other.Num());
+				//Iterate Search
+				FTerrainVertex* SearchVertex = bClockwise ? Vertex->NextVertex : Vertex->LastVertex;
+				FTerrainVertex* SearchOtherVertex = bClockwise ? OtherVertex->LastVertex : OtherVertex->NextVertex;
 
-			} while (SearchIndex != FaceIndex);
+			} while (SearchVertex != Vertex);
 			ensureMsgf(false, TEXT("Shape indices mismatch"));
 
 		nextLoop:
@@ -323,57 +321,55 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	 * @param FaceIndex - The index of the face on this the other shape to start the merge at.
 	 * @return Whether or not this shape can be merged with the other shape.
 	 */
-	bool MergeShape(FTerrainShape& MergedShape, FTerrainShapeMergeResult& MergeResult, int FaceIndex, FTerrainShape Other, int OtherFaceIndex) const
+	bool MergeShape(FTerrainShape& MergedShape, FTerrainShapeMergeResult& MergeResult, FTerrainVertex* Vertex, FTerrainShape Other, FTerrainVertex* OtherVertex) const
 	{
 		MergeResult = FTerrainShapeMergeResult();
 
 		//Account for empty shapes.
-		if (ShapeSockets.IsEmpty() && !Other.ShapeSockets.IsEmpty())
+		if (!(InitialVertex->LastVertex && InitialVertex->NextVertex) && (Other.InitialVertex->LastVertex && Other.InitialVertex->NextVertex))
 		{
-			MergedShape = FTerrainShape(Other.Vertices, Other.ShapeSockets);
+			MergedShape = FTerrainShape(Other);
 			MergeResult.Transform = FTransform2D();
-			MergeResult.Growth = Other.Num();
 			return true;
 		}
 
 		//Fail Invalid Merges
-		if (Other.ShapeSockets.IsEmpty() || !ShapeSockets.IsValidIndex(FaceIndex) || !Other.ShapeSockets.IsValidIndex(OtherFaceIndex))
+		if (!(Other.InitialVertex->LastVertex && Other.InitialVertex->NextVertex) || !Vertex || !OtherVertex)
 		{
 			MergedShape = FTerrainShape();
 			return false;
 		}
 
-		// \/ Detect if merge is possible \/ //
-		int FirstMergeIndex = FaceIndex;
-		int LastMergeIndex = FaceIndex;
-		int OtherFirstMergeIndex = OtherFaceIndex;
-		int OtherLastMergeIndex = OtherFaceIndex;
 
+		// \/ Detect if merge is possible \/ //
+
+		FTerrainVertex* FirstMergeVertex = new FTerrainVertex(*Vertex);
+		FTerrainVertex* LastMergeVertex = new FTerrainVertex(*Vertex->NextVertex);
+		FTerrainVertex* OtherFirstMergeVertex = new FTerrainVertex(*OtherVertex);
+		FTerrainVertex* OtherLastMergeVertex = new FTerrainVertex(*OtherVertex->NextVertex);
 
 		bool bClockwise = false;
 		bool bSearchClockwise = true;
 		do
 		{
-			//Reset indices
-			
-			int SearchIndex = UPTTMath::Mod(FaceIndex + bClockwise, Num());
-			int OtherSearchIndex = UPTTMath::Mod(OtherFaceIndex - bClockwise, Other.Num());
+			//Reset search
+			FTerrainVertex* SearchVertex = bClockwise ? Vertex->NextVertex : Vertex;
+			FTerrainVertex* SearchOtherVertex = bClockwise ? OtherVertex->LastVertex : OtherVertex;
 
 			//Search all of shapes sockets to detect if connection is possible
 			do
 			{
 				//Test socket connectivity
-				switch (ShapeSockets[SearchIndex].CanConnectToSocket(Other.ShapeSockets[OtherSearchIndex]))
+				switch (FTerrainVertex::CanVerticesConnect(SearchVertex, SearchOtherVertex))
 				{
 				case EConnectionResult::No:
-					MergedShape = FTerrainShape();
 					return false;
 
 				case EConnectionResult::CheckNext:
 					if (!bClockwise)
 					{
-						FirstMergeIndex = SearchIndex;
-						OtherLastMergeIndex = OtherSearchIndex;
+						FirstMergeVertex = new FTerrainVertex(*SearchVertex);
+						OtherLastMergeVertex = new FTerrainVertex(*SearchOtherVertex->NextVertex);
 						if (bSearchClockwise)
 						{
 							goto nextLoop;
@@ -385,9 +381,9 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 				case EConnectionResult::CheckPrevious:
 					if (bClockwise)
 					{
-						LastMergeIndex = SearchIndex;
-						OtherFirstMergeIndex = OtherSearchIndex;
-						goto nextLoop; 
+						LastMergeVertex = new FTerrainVertex(*SearchVertex->NextVertex);
+						OtherFirstMergeVertex = new FTerrainVertex(*SearchOtherVertex);
+						goto nextLoop;
 					}
 					bSearchClockwise = false;
 					break;
@@ -396,7 +392,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 					break;
 
 				case EConnectionResult::Yes:
-					if (ensureMsgf(SearchIndex == FaceIndex, TEXT("Improper Shape Angle Detection")))
+					if (ensureMsgf(SearchVertex == Vertex, TEXT("Improper Shape Angle Detection")))
 					{
 						goto skipLoop;
 					}
@@ -408,39 +404,33 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 					break;
 				}
 
-				//Iterate Indices
-				SearchIndex = UPTTMath::Mod(SearchIndex + (bClockwise ? 1 : -1), Num());
-				OtherSearchIndex = UPTTMath::Mod(OtherSearchIndex + (!bClockwise ? 1 : -1), Other.Num());
+				//Iterate Search
+				FTerrainVertex* SearchVertex = bClockwise ? Vertex->NextVertex : Vertex->LastVertex;
+				FTerrainVertex* SearchOtherVertex = bClockwise ? OtherVertex->LastVertex : OtherVertex->NextVertex;
 
-			} while (SearchIndex != FaceIndex);
+			} while (SearchVertex != Vertex);
 			ensureMsgf(false, TEXT("Shape indices mismatch"));
 
 		nextLoop:
 			bClockwise = !bClockwise;
 
 		} while ((bClockwise));
+
 	skipLoop:
+
 		// /\ Detect if merge is possible /\ //
 		
 		// \/ Merge Shapes \/ //
 		
 		//Prune Merged Sockets & Vertices
-		MergeResult.Shrinkage = (FirstMergeIndex <= LastMergeIndex ? LastMergeIndex - FirstMergeIndex + 1 : LastMergeIndex + Num() - FirstMergeIndex + 1);
-		MergedShape = FTerrainShape();
-		MergedShape.ShapeSockets.SetNum(Num() - MergeResult.Shrinkage);
-		MergedShape.Vertices.SetNum(Num() - MergeResult.Shrinkage);
-
-		MergeResult.Offset = -1 * UPTTMath::Mod(LastMergeIndex + 1, Num());
-
-		for (int MergeOffset = 0; MergeOffset < MergedShape.Num(); MergeOffset++)
+		MergedShape = FTerrainShape(*this);
+		for (FTerrainVertex* SeachVertex = FirstMergeVertex->NextVertex; SeachVertex != LastMergeVertex; SeachVertex = SeachVertex->NextVertex)
 		{
-			MergedShape.ShapeSockets[MergeOffset] = ShapeSockets[UPTTMath::Mod(LastMergeIndex + 1 + MergeOffset, Num())];
-			MergedShape.Vertices[MergeOffset] = Vertices[UPTTMath::Mod(LastMergeIndex + 1 + MergeOffset, Num())];
+			delete SeachVertex->LastVertex;
 		}
 
-
 		//Adjust socket angles
-		TArray<FTerrainSocket> OtherShapeSockets = TArray<FTerrainSocket>(Other.ShapeSockets);
+		FTerrainVertex OtherShapeSockets = TArray<FTerrainSocket>(Other.ShapeSockets);
 		OtherShapeSockets[UPTTMath::Mod(OtherLastMergeIndex + 1, OtherShapeSockets.Num())].IncreaseFirstAngle(ShapeSockets[FirstMergeIndex].FirstAngle);
 		OtherShapeSockets[UPTTMath::Mod(OtherFirstMergeIndex - 1, OtherShapeSockets.Num())].IncreaseSecondAngle(ShapeSockets[LastMergeIndex].SecondAngle);
 
