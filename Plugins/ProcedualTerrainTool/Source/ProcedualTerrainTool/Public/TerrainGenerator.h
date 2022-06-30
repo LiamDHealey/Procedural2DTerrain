@@ -139,8 +139,16 @@ public:
 	bool bGenerateUntilSuccessful = false;
 
 	//How many steps into the future to look when generating terrain. Higher numbers slow generation but reduce risk of generation failure.
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Meta = (ClampMin = "0", ClampMax = "4", Category = "TerrainGenerator"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Meta = (ClampMin = "0", ClampMax = "4", Category = "Terrain Generator"))
 	int PredictionDepth = 0;
+
+	//Whether or not to use the manually entered seed when generating terrain.
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Meta = (Category = "Terrain Generator", EditCondition = "!bGenerateUntilSuccessful"))
+	bool bUseManualSeed = false;
+
+	//Whether or not to use the manually entered seed when generating terrain.
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Meta = (Category = "Terrain Generator", EditCondition = "!bGenerateUntilSuccessful && bUseManualSeed"))
+	FRandomStream Seed = FRandomStream(0);
 
 private:
 
@@ -174,7 +182,7 @@ private:
 	int NumberOfTilesSpawned = 0;
 
 	//All of the actors spawned by this.
-	UPROPERTY()
+	UPROPERTY(Transient)
 	TSet<AActor*> TileActors = TSet<AActor*>();
 };
 
@@ -227,7 +235,7 @@ public:
 	 * @param Mode - The method used for deciding which superposition to collapse next.
 	 * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
 	 */
-	FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0, FTerrainShape CurrentTerrainShape = FTerrainShape());
+	FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, FRandomStream& RandomStream, const int PredictionDepth = 0, FTerrainShape CurrentTerrainShape = FTerrainShape());
 
 	/**
 	 * Destructs this and handles thread deletion.
@@ -267,6 +275,8 @@ private:
 
 	//The method used for deciding which superposition to collapse next.
 	UProcedualCollapseMode* CollapseMode;
+	//The random stream used to generate the terrain.
+	FRandomStream& RandomStream;
 	//How many iterations into the future to search for failed superpositions.
 	int CollapsePredictionDepth;
 	//The tiles that will be used to generate the terrain.

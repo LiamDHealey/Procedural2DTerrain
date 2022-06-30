@@ -32,7 +32,7 @@ UProcedualCollapseMode::UProcedualCollapseMode()
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool UProcedualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
+bool UProcedualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
 {
 	SuperPositionIndex = FIntVector();
 	return false;
@@ -94,7 +94,7 @@ void AManualCollapseModeLocationMarker::CheakForInvalidMode()
 	}
 	else
 	{
-		TSubclassOf<AActor> TargetClass = Cast<ATerrainGenerator>(Owner)->SpawnableTiles[ConnectedMode->TileIndex].TileData->ActorClass;
+		TSubclassOf<AActor> TargetClass = Cast<ATerrainGenerator>(Owner)->SpawnableTiles[FMath::Clamp(ConnectedMode->TileIndex, 0, Cast<ATerrainGenerator>(Owner)->SpawnableTiles.Num()-1)].TileData->ActorClass;
 		if (Cast<UChildActorComponent>(RootComponent)->GetChildActorClass() != TargetClass)
 		{
 			Cast<UChildActorComponent>(RootComponent)->SetChildActorClass(TargetClass);
@@ -135,9 +135,10 @@ UManualCollapseMode::UManualCollapseMode()
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
+bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
 {
 	ErrorLocation = FVector::ZeroVector;
+	TileIndex = FMath::Clamp(TileIndex, 0, SpawnableTiles.Num() - 1);
 	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
 	{
 		//Get socket closest to center
@@ -156,7 +157,7 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 		}
 
 		//Get possible collapses around selected socket
-		int ShapeIndex = FMath::Clamp(TileIndex, 0, SpawnableTiles.Num());
+		int ShapeIndex = TileIndex;
 		for (int FaceIndex = 0; FaceIndex < SuperPositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
 		{
 			if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
@@ -175,23 +176,23 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 		{
 			UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
 			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2), 0));
-			SuperPositionIndex = FIntVector(0, FMath::Clamp(TileIndex, 0, SpawnableTiles.Num()), 0);
+			SuperPositionIndex = FIntVector(0, TileIndex, 0);
 			return false;
 		}
 
 		//Collapse superposition
 		if (ensure(!PossibleCollapses.IsEmpty() && !PossibleCollapses.FindRef(ShapeIndex).IsEmpty()))
 		{
-			SuperPositionIndex = FIntVector(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
+			SuperPositionIndex = FIntVector(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[RandomStream.RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
 			return false;
 		}
 
 		//Fail for memory loss
-		SuperPositionIndex = FIntVector(0, FMath::Clamp(TileIndex, 0, SpawnableTiles.Num()), 0);
+		SuperPositionIndex = FIntVector(0, TileIndex, 0);
 		return false;
 	}
 	//Fail for invalid shapes
-	SuperPositionIndex = FIntVector(0, FMath::Clamp(TileIndex, 0, SpawnableTiles.Num()), 0);
+	SuperPositionIndex = FIntVector(0, TileIndex, 0);
 	return false;
 }
 
@@ -214,7 +215,7 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
+bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
 {
 	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
 	{
@@ -276,7 +277,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 		}
 
 		int ShapeIndex = 0;
-		float RandomSelector = FMath::RandRange(0.f, WeightSum);
+		float RandomSelector = RandomStream.FRandRange(0.f, WeightSum);
 		for (int KeyIndex = 0; KeyIndex < Keys.Num(); KeyIndex++)
 		{
 			if (Weights[KeyIndex] >= RandomSelector)
@@ -289,7 +290,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 		//Collapse superposition
 		if (ensure(!PossibleCollapses.IsEmpty() && !PossibleCollapses.FindRef(ShapeIndex).IsEmpty()))
 		{
-			SuperPositionIndex = FIntVector(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
+			SuperPositionIndex = FIntVector(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[RandomStream.RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
 			return ClosestDistanceSquared < Radius * Radius;
 		}
 
@@ -298,7 +299,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 		return false;
 	}
 	//Fail for invalid shapes
-	SuperPositionIndex = FIntVector(0,0,0);
+	SuperPositionIndex = FIntVector(0, RandomStream.RandHelper(SpawnableTiles.Num()),0);
 	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
 }
 
@@ -332,7 +333,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
+bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
 {
 	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
 	{
@@ -396,7 +397,7 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 		}
 
 		int ShapeIndex = 0;
-		float RandomSelector = FMath::RandRange(0.f, WeightSum);
+		float RandomSelector = RandomStream.FRandRange(0.f, WeightSum);
 		for (int KeyIndex = 0; KeyIndex < Keys.Num(); KeyIndex++)
 		{
 			if (Weights[KeyIndex] >= RandomSelector)
@@ -409,13 +410,13 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 		//Collapse superposition
 		if (ensure(!PossibleCollapses.IsEmpty() && !PossibleCollapses.FindRef(ShapeIndex).IsEmpty()))
 		{
-			SuperPositionIndex = FIntVector(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[FMath::RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
+			SuperPositionIndex = FIntVector(SocketIndex, ShapeIndex, PossibleCollapses.FindRef(ShapeIndex)[RandomStream.RandHelper(PossibleCollapses.FindRef(ShapeIndex).Num())]);
 			return bValidSocketFound;
 		}
 		SuperPositionIndex = FIntVector(0, 0, 0);
 		return false;
 	}
-	SuperPositionIndex = FIntVector(0, 0, 0);
+	SuperPositionIndex = FIntVector(0, RandomStream.RandHelper(SpawnableTiles.Num()), 0);
 	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
 }
 

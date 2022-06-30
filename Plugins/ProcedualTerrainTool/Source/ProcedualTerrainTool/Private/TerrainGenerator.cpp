@@ -30,10 +30,24 @@ void ATerrainGenerator::BeginGeneration()
 {
 	if (IsValid(GenerationMode))
 	{
+		for (FTerrainTileSpawnData EachSpawnableTile : SpawnableTiles)
+		{
+			if (!IsValid(EachSpawnableTile.TileData))
+			{
+				UE_LOG(LogTerrainTool, Error, TEXT("Not all spawnable tiles are valid"));
+				return;
+			}
+		}
+
 		if (FPlatformProcess::SupportsMultithreading())
 		{
+			if ((bGenerateUntilSuccessful || !bUseManualSeed) && Seed.GetCurrentSeed() == Seed.GetInitialSeed())
+			{
+				Seed.GenerateNewSeed();
+			}
+
 			EndGeneration();
-			TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, GenerationMode, PredictionDepth, TerrainShape);
+			TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, GenerationMode, Seed, PredictionDepth, TerrainShape);
 
 			GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainGenerator::RefreshTiles, .1, true);
 
@@ -86,6 +100,10 @@ void ATerrainGenerator::Reset()
 	TileActors.Empty();
 
 	TerrainShape = FTerrainShape();
+
+	Seed.Reset();
+
+	GenerationMode->ErrorLocation = FVector::ZeroVector;
 }
 
 /**
@@ -194,13 +212,14 @@ bool FTerrainGenerationWorker::IsTerrainFinishedGenerating()
  * @param Mode - The method used for deciding which superposition to collapse next.
  * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
  */
-FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth, FTerrainShape CurrentTerrainShape) :
+FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, FRandomStream& GenerationStream, const int PredictionDepth, FTerrainShape CurrentTerrainShape) :
 	bStopped(false),
 	CollapseMode(Mode),
 	CollapsePredictionDepth(PredictionDepth),
 	UseableTiles(Tiles),
 	Shape(CurrentTerrainShape),
-	bCompleated(false)
+	bCompleated(false),
+	RandomStream(GenerationStream)
 { 
 	//Create thread.
 	Thread = FRunnableThread::Create(this, TEXT("FTerrainGenerationWorker"), 0, TPri_BelowNormal);
@@ -271,8 +290,7 @@ uint32 FTerrainGenerationWorker::Run()
 		if (!SuperPositions.IsEmpty())
 		{
 			FIntVector CollapseResult;
-			bCompleated = !CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles);
-			CollapseSuperPosition(CollapseResult);
+			bCompleated = !(CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles, RandomStream) && CollapseSuperPosition(CollapseResult));
 		}
 		else
 		{
@@ -311,7 +329,7 @@ bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
 		FTerrainShape NewShape;
 		FTerrainShapeMergeResult MergeResult;
 
-		if (ensureAlwaysMsgf(Shape.MergeShape(NewShape, MergeResult, SocketIndex, TileShapes[ShapeIndex], FaceIndex), TEXT("Super Position Array False")))
+		if (ensureAlwaysMsgf(Shape.MergeShape(NewShape, MergeResult, SocketIndex, TileShapes[ShapeIndex], FaceIndex), TEXT("Super Position Array False at %i, %i, %i"), SocketIndex, ShapeIndex, FaceIndex))
 		{
 			TerrainTiles.Emplace(FTerrainTileInstanceData(ShapeIndex, MergeResult));
 			Shape = NewShape;
