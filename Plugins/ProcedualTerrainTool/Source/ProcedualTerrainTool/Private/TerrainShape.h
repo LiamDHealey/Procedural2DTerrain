@@ -457,14 +457,14 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 
 		//Add other vertices
 		OtherLastMergeIndex = UPTTMath::Mod(OtherLastMergeIndex + 1, Other.Num());
-		do
+		while (OtherLastMergeIndex != OtherFirstMergeIndex)
 		{
 			MergedShape.Vertices.Emplace(MergeResult.Transform.TransformPoint(Other.Vertices[OtherLastMergeIndex]));
 			MergedShape.ShapeSockets.Emplace(OtherShapeSockets[OtherLastMergeIndex]);
 			MergeResult.Growth++;
 
 			OtherLastMergeIndex = UPTTMath::Mod(OtherLastMergeIndex + 1, Other.Num());
-		} while (OtherLastMergeIndex != OtherFirstMergeIndex);
+		}
 
 		// /\ Merge Shapes /\ //
 		

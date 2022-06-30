@@ -23,6 +23,18 @@ ATerrainGenerator::ATerrainGenerator()
 	RootComponent->SetMobility(EComponentMobility::Static);
 }
 
+///**
+// * Delete me.
+// */
+//void ATerrainGenerator::Test()
+//{
+//	FlushPersistentDebugLines(GetWorld());
+//	for (int i =0; i < TerrainShape.Num(); i++)
+//	{
+//		DrawDebugDirectionalArrow(GetWorld(), FVector(TerrainShape.Vertices[i], 0), FVector(TerrainShape.Vertices[(i + 1) % TerrainShape.Num()], 0), 200, FColor::MakeRandomColor(), true, 0, 0U, 5);
+//	}
+//}
+
 /**
  * Begins the terrain generation process.
  */
@@ -290,7 +302,8 @@ uint32 FTerrainGenerationWorker::Run()
 		if (!SuperPositions.IsEmpty())
 		{
 			FIntVector CollapseResult;
-			bCompleated = !(CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles, RandomStream) && CollapseSuperPosition(CollapseResult));
+			bCompleated = !CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles, RandomStream);
+			bCompleated = !CollapseSuperPosition(CollapseResult) || bCompleated;
 		}
 		else
 		{

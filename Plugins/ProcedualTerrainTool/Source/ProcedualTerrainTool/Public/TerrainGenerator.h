@@ -107,6 +107,12 @@ public:
 	 */
 	ATerrainGenerator();
 
+	///**
+	// * Delete me.
+	// */
+	//UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "Terrain Generator"))
+	//void Test();
+
 	/**
 	 * Begins the terrain generation process.
 	 */
