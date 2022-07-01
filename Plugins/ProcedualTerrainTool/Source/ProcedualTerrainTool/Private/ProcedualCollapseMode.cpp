@@ -88,7 +88,7 @@ AManualCollapseModeLocationMarker::AManualCollapseModeLocationMarker()
  */
 void AManualCollapseModeLocationMarker::CheakForInvalidMode()
 {
-	if (!(IsValid(Owner) && IsValid(ConnectedMode) && IsValid(Cast<UManualCollapseMode>(Cast<ATerrainGenerator>(Owner)->GenerationMode))))
+	if (!(IsValid(Owner) && IsValid(ConnectedMode) && IsValid(Cast<UManualCollapseMode>(Cast<ATerrainGenerator>(Owner)->GenerationMode))) && Cast<ATerrainGenerator>(Owner)->SpawnableTiles.Num() > 0)
 	{
 		Destroy();
 	}
