@@ -73,7 +73,7 @@ AManualCollapseModeLocationMarker::AManualCollapseModeLocationMarker()
 {
 	RootComponent = CreateDefaultSubobject<UChildActorComponent>(FName("Root"));
 	RootComponent->SetVisibility(true, true);
-
+	SpriteScale = 4;
 	SetActorHiddenInGame(true);
 
 	if (IsValid(GetWorld()))

@@ -188,7 +188,7 @@ private:
 	int NumberOfTilesSpawned = 0;
 
 	//All of the actors spawned by this.
-	UPROPERTY(Transient)
+	UPROPERTY()
 	TSet<AActor*> TileActors = TSet<AActor*>();
 };
 
