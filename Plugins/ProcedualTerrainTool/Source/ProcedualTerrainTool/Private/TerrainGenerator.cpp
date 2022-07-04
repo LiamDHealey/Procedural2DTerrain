@@ -230,8 +230,8 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>
 	CollapsePredictionDepth(PredictionDepth),
 	UseableTiles(Tiles),
 	Shape(CurrentTerrainShape),
-	bCompleated(false),
-	RandomStream(GenerationStream)
+	RandomStream(GenerationStream),
+	bCompleated(false)
 { 
 	//Create thread.
 	Thread = FRunnableThread::Create(this, TEXT("FTerrainGenerationWorker"), 0, TPri_BelowNormal);
@@ -242,10 +242,12 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>
 	//Set up generation constants.
 	TileShapes = TArray<FTerrainShape>();
 	BaseSuperPositions = TArray<TArray<bool>>();
+	MaxTileVertices = 0;
 
 	for (FTerrainTileSpawnData EachUseableTile : UseableTiles)
 	{
 		TileShapes.Emplace(FTerrainShape(EachUseableTile.TileData->Verticies, EachUseableTile.TileData->FaceTypes));
+		MaxTileVertices = FMath::Max(EachUseableTile.TileData->Verticies.Num(), MaxTileVertices);
 
 		TArray<bool> Faces = TArray<bool>();
 		Faces.Init(true, EachUseableTile.TileData->Verticies.Num());
@@ -350,6 +352,7 @@ bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
 
 			return true;
 		}
+		CollapseMode->ErrorLocation = CollapseMode->TerrainTransform.TransformPosition(FVector(((Shape.Vertices[SocketIndex] + Shape.Vertices[(SocketIndex + 1) % Shape.Num()]) / 2), 0));
 	}
 	UE_LOG(LogTerrainTool, Error, TEXT("Collapse Failed"));
 	return false;
@@ -364,7 +367,7 @@ bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
  */
 bool FTerrainGenerationWorker::HasNewCollapseableSuperPositions(FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult, int SearchDepth) const
 {
-	for (int Offset = 0; Offset < MergeResult.Growth + 2; Offset++)
+	for (int Offset = 0; Offset < FMath::Min(MergeResult.Growth + 2, NewShape.Num()); Offset++)
 	{
 		int CollapseSocketIndex = UPTTMath::Mod(NewShape.Num() - 1 - MergeResult.Growth + Offset, NewShape.Num());
 		for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
@@ -419,9 +422,10 @@ void FTerrainGenerationWorker::RefreshSuperPositions(int ShapeVertexGrowth, int 
 
 	int NumberOfPossibleCollapses = 0;
 	FIntVector CollapseIndex = FIntVector();
-	for (int Offset = 0; Offset < FMath::Min(ShapeVertexGrowth + 2, Shape.Num()); Offset++)
+
+	for (int Offset = 0; Offset < FMath::Min(ShapeVertexGrowth + 2 * MaxTileVertices, Shape.Num()); Offset++)
 	{
-		int CollapseSocketIndex = UPTTMath::Mod(Shape.Num() - 1 - ShapeVertexGrowth + Offset, Shape.Num());
+		int CollapseSocketIndex = UPTTMath::Mod(Shape.Num() - MaxTileVertices - ShapeVertexGrowth + Offset, Shape.Num());
 		for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
 		{
 			for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperPositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)

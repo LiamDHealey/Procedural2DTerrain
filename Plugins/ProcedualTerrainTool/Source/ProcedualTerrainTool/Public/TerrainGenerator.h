@@ -289,6 +289,8 @@ private:
 	TArray<FTerrainTileSpawnData> UseableTiles;
 	//The shapes of the tiles.
 	TArray<FTerrainShape> TileShapes;
+	//The shapes of the tiles.
+	int MaxTileVertices;
 	//The superposition of an empty socket.
 	TArray<TArray<bool>> BaseSuperPositions;
 
