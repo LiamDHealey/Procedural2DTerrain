@@ -23,6 +23,18 @@ ATerrainGenerator::ATerrainGenerator()
 	RootComponent->SetMobility(EComponentMobility::Static);
 }
 
+///**
+// * Delete me.
+// */
+//void ATerrainGenerator::Test()
+//{
+//	FlushPersistentDebugLines(GetWorld());
+//	for (int i =0; i < TerrainShape.Num(); i++)
+//	{
+//		DrawDebugDirectionalArrow(GetWorld(), FVector(TerrainShape.Vertices[i], 0), FVector(TerrainShape.Vertices[(i + 1) % TerrainShape.Num()], 0), 200, FColor::MakeRandomColor(), true, 0, 0U, 5);
+//	}
+//}
+
 /**
  * Begins the terrain generation process.
  */
@@ -30,10 +42,24 @@ void ATerrainGenerator::BeginGeneration()
 {
 	if (IsValid(GenerationMode))
 	{
+		for (FTerrainTileSpawnData EachSpawnableTile : SpawnableTiles)
+		{
+			if (!IsValid(EachSpawnableTile.TileData))
+			{
+				UE_LOG(LogTerrainTool, Error, TEXT("Not all spawnable tiles are valid"));
+				return;
+			}
+		}
+
 		if (FPlatformProcess::SupportsMultithreading())
 		{
+			if ((bGenerateUntilSuccessful || !bUseManualSeed) && Seed.GetCurrentSeed() == Seed.GetInitialSeed())
+			{
+				Seed.GenerateNewSeed();
+			}
+
 			EndGeneration();
-			TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, GenerationMode, PredictionDepth, TerrainShape);
+			TerrainGenerationWorker = new FTerrainGenerationWorker(SpawnableTiles, GenerationMode, Seed, PredictionDepth, TerrainShape);
 
 			GetWorld()->GetTimerManager().SetTimer(TileRefreshTimerHandle, this, &ATerrainGenerator::RefreshTiles, .1, true);
 
@@ -86,6 +112,10 @@ void ATerrainGenerator::Reset()
 	TileActors.Empty();
 
 	TerrainShape = FTerrainShape();
+
+	Seed.Reset();
+
+	GenerationMode->ErrorLocation = FVector::ZeroVector;
 }
 
 /**
@@ -194,12 +224,13 @@ bool FTerrainGenerationWorker::IsTerrainFinishedGenerating()
  * @param Mode - The method used for deciding which superposition to collapse next.
  * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
  */
-FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth, FTerrainShape CurrentTerrainShape) :
+FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, FRandomStream& GenerationStream, const int PredictionDepth, FTerrainShape CurrentTerrainShape) :
 	bStopped(false),
 	CollapseMode(Mode),
 	CollapsePredictionDepth(PredictionDepth),
 	UseableTiles(Tiles),
 	Shape(CurrentTerrainShape),
+	RandomStream(GenerationStream),
 	bCompleated(false)
 { 
 	//Create thread.
@@ -211,10 +242,12 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>
 	//Set up generation constants.
 	TileShapes = TArray<FTerrainShape>();
 	BaseSuperPositions = TArray<TArray<bool>>();
+	MaxTileVertices = 0;
 
 	for (FTerrainTileSpawnData EachUseableTile : UseableTiles)
 	{
 		TileShapes.Emplace(FTerrainShape(EachUseableTile.TileData->Verticies, EachUseableTile.TileData->FaceTypes));
+		MaxTileVertices = FMath::Max(EachUseableTile.TileData->Verticies.Num(), MaxTileVertices);
 
 		TArray<bool> Faces = TArray<bool>();
 		Faces.Init(true, EachUseableTile.TileData->Verticies.Num());
@@ -271,8 +304,8 @@ uint32 FTerrainGenerationWorker::Run()
 		if (!SuperPositions.IsEmpty())
 		{
 			FIntVector CollapseResult;
-			bCompleated = !CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles);
-			CollapseSuperPosition(CollapseResult);
+			bCompleated = !CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles, RandomStream);
+			bCompleated = !CollapseSuperPosition(CollapseResult) || bCompleated;
 		}
 		else
 		{
@@ -311,7 +344,7 @@ bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
 		FTerrainShape NewShape;
 		FTerrainShapeMergeResult MergeResult;
 
-		if (ensureAlwaysMsgf(Shape.MergeShape(NewShape, MergeResult, SocketIndex, TileShapes[ShapeIndex], FaceIndex), TEXT("Super Position Array False")))
+		if (ensureAlwaysMsgf(Shape.MergeShape(NewShape, MergeResult, SocketIndex, TileShapes[ShapeIndex], FaceIndex), TEXT("Super Position Array False at %i, %i, %i"), SocketIndex, ShapeIndex, FaceIndex))
 		{
 			TerrainTiles.Emplace(FTerrainTileInstanceData(ShapeIndex, MergeResult));
 			Shape = NewShape;
@@ -319,6 +352,7 @@ bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
 
 			return true;
 		}
+		CollapseMode->ErrorLocation = CollapseMode->TerrainTransform.TransformPosition(FVector(((Shape.Vertices[SocketIndex] + Shape.Vertices[(SocketIndex + 1) % Shape.Num()]) / 2), 0));
 	}
 	UE_LOG(LogTerrainTool, Error, TEXT("Collapse Failed"));
 	return false;
@@ -333,7 +367,7 @@ bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
  */
 bool FTerrainGenerationWorker::HasNewCollapseableSuperPositions(FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult, int SearchDepth) const
 {
-	for (int Offset = 0; Offset < MergeResult.Growth + 2; Offset++)
+	for (int Offset = 0; Offset < FMath::Min(MergeResult.Growth + 2, NewShape.Num()); Offset++)
 	{
 		int CollapseSocketIndex = UPTTMath::Mod(NewShape.Num() - 1 - MergeResult.Growth + Offset, NewShape.Num());
 		for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
@@ -388,9 +422,10 @@ void FTerrainGenerationWorker::RefreshSuperPositions(int ShapeVertexGrowth, int 
 
 	int NumberOfPossibleCollapses = 0;
 	FIntVector CollapseIndex = FIntVector();
-	for (int Offset = 0; Offset < FMath::Min(ShapeVertexGrowth + 2, Shape.Num()); Offset++)
+
+	for (int Offset = 0; Offset < FMath::Min(ShapeVertexGrowth + 2 * MaxTileVertices, Shape.Num()); Offset++)
 	{
-		int CollapseSocketIndex = UPTTMath::Mod(Shape.Num() - 1 - ShapeVertexGrowth + Offset, Shape.Num());
+		int CollapseSocketIndex = UPTTMath::Mod(Shape.Num() - MaxTileVertices - ShapeVertexGrowth + Offset, Shape.Num());
 		for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
 		{
 			for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperPositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)

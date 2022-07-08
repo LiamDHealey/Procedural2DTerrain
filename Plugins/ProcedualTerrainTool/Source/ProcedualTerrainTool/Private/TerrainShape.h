@@ -138,7 +138,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainVertex
 /**
  * Stores the results of a terrain shape merge.
  */
-USTRUCT(BlueprintType)
+USTRUCT()
 struct PROCEDUALTERRAINTOOL_API FTerrainShapeMergeResult
 {
 	GENERATED_BODY()
@@ -162,7 +162,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShapeMergeResult
 /**
  * Stores a piece of terrain's shape and its sockets.
  */
-USTRUCT(BlueprintType)
+USTRUCT()
 struct PROCEDUALTERRAINTOOL_API FTerrainShape
 {
 	GENERATED_BODY()

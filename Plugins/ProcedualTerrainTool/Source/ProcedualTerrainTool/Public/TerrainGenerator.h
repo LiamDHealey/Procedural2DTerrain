@@ -24,17 +24,17 @@ class UManualCollapseMode;
 /**
  * Information about a terrain tile and location.
  */
-USTRUCT(BlueprintType)
+USTRUCT()
 struct PROCEDUALTERRAINTOOL_API FTerrainTileInstanceData
 {
 	GENERATED_BODY()
 
 	//The index of this tile.
-	UPROPERTY(EditAnywhere)
+	UPROPERTY()
 	int ShapeIndex;
 
 	//The merge result that created this tile.
-	UPROPERTY(EditAnywhere)
+	UPROPERTY()
 	FTerrainShapeMergeResult MergeResult;
 
 	/**
@@ -62,11 +62,11 @@ struct PROCEDUALTERRAINTOOL_API FTerrainTileSpawnData
 	GENERATED_BODY()
 
 	//The data of this tile.
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Meta = (Category = "Tile Data"))
 	UTerrainTileData* TileData = nullptr;
 
 	//How likely this tile is to spawn.
-	UPROPERTY(EditAnywhere, Meta = (ClampMin = "0"))
+	UPROPERTY(EditAnywhere, Meta = (ClampMin = "0", Category = "Tile Data"))
 	float SpawnWeight = 1;
 
 	/**
@@ -107,40 +107,54 @@ public:
 	 */
 	ATerrainGenerator();
 
+	///**
+	// * Delete me.
+	// */
+	//UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "Terrain Generator"))
+	//void Test();
+
 	/**
 	 * Begins the terrain generation process.
 	 */
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainGenerator"))
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "Terrain Generator"))
 	void BeginGeneration();
 
 	/**
 	 * Stops the generation before the terrain is finished generating.
 	 */
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainGenerator"))
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "Terrain Generator"))
 	void EndGeneration();
 
 	/**
 	 * Resets the generation process and deletes all actors already spawned.
 	 */
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "TerrainGenerator"))
+	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "Terrain Generator"))
 	void Reset();
 
+
 	//The set of tiles that this will use when generating terrain.
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Meta = (Category = "Terrain Generator"))
 	TArray<FTerrainTileSpawnData> SpawnableTiles;
 
 	//The method and shape in which the terrain will be generated.
-	UPROPERTY(EditAnywhere, Instanced)
+	UPROPERTY(EditAnywhere, Instanced, Meta = (Category = "Terrain Generator"))
 	UProcedualCollapseMode* GenerationMode = nullptr;
 
-
 	//The method and shape in which the terrain will be generated.
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, Meta = (Category = "Terrain Generator"))
 	bool bGenerateUntilSuccessful = false;
 
 	//How many steps into the future to look when generating terrain. Higher numbers slow generation but reduce risk of generation failure.
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Meta = (ClampMin = "0", ClampMax = "4"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Meta = (ClampMin = "0", ClampMax = "4", Category = "Terrain Generator"))
 	int PredictionDepth = 0;
+
+	//Whether or not to use the manually entered seed when generating terrain.
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Meta = (Category = "Terrain Generator", EditCondition = "!bGenerateUntilSuccessful"))
+	bool bUseManualSeed = false;
+
+	//Whether or not to use the manually entered seed when generating terrain.
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Meta = (Category = "Terrain Generator", EditCondition = "!bGenerateUntilSuccessful && bUseManualSeed"))
+	FRandomStream Seed = FRandomStream(0);
 
 private:
 
@@ -227,7 +241,7 @@ public:
 	 * @param Mode - The method used for deciding which superposition to collapse next.
 	 * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
 	 */
-	FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, const int PredictionDepth = 0, FTerrainShape CurrentTerrainShape = FTerrainShape());
+	FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, FRandomStream& RandomStream, const int PredictionDepth = 0, FTerrainShape CurrentTerrainShape = FTerrainShape());
 
 	/**
 	 * Destructs this and handles thread deletion.
@@ -267,12 +281,16 @@ private:
 
 	//The method used for deciding which superposition to collapse next.
 	UProcedualCollapseMode* CollapseMode;
+	//The random stream used to generate the terrain.
+	FRandomStream& RandomStream;
 	//How many iterations into the future to search for failed superpositions.
 	int CollapsePredictionDepth;
 	//The tiles that will be used to generate the terrain.
 	TArray<FTerrainTileSpawnData> UseableTiles;
 	//The shapes of the tiles.
 	TArray<FTerrainShape> TileShapes;
+	//The shapes of the tiles.
+	int MaxTileVertices;
 	//The superposition of an empty socket.
 	TArray<TArray<bool>> BaseSuperPositions;
 

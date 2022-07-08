@@ -37,7 +37,7 @@ class PROCEDUALTERRAINTOOL_API UPTTFactories : public UBlueprintFunctionLibrary
 	GENERATED_BODY()
 
 public:
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Meta = (Category = "Factories"))
 	static FORCEINLINE UDataAssetFactory* CreateDataAssetFactory()
 	{
 		return NewObject<UDataAssetFactory>();
