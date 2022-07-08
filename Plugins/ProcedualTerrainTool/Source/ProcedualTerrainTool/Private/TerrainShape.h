@@ -444,14 +444,14 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 
 
 		//Add other vertices
-		MergeResult.Growth = (OtherMergeIndex1 <= OtherMergeIndex2 ? OtherMergeIndex1 - OtherMergeIndex2 : OtherMergeIndex2 + Other.Num() - OtherMergeIndex1);
+		MergeResult.Growth = (OtherMergeIndex1 <= OtherMergeIndex2 ? OtherMergeIndex2 - OtherMergeIndex1 : OtherMergeIndex2 + Other.Num() - OtherMergeIndex1);
 
 		for (int MergeOffset = 0; MergeOffset < MergeResult.Growth; MergeOffset++)
 		{
-			int MergeIndex = UPTTMath::Mod(MergeIndex - OtherMergeIndex1, Other.Num());
+			int MergeIndex = UPTTMath::Mod(OtherMergeIndex1 + MergeOffset, OtherShapeVertices.Num());
 
-			FTerrainVertex VertexToEmplace = Other.Vertices[MergeIndex];
-			VertexToEmplace.Location = MergeResult.Transform.TransformPoint(Other.Vertices[MergeIndex].Location);
+			FTerrainVertex VertexToEmplace = OtherShapeVertices[MergeIndex];
+			VertexToEmplace.Location = MergeResult.Transform.TransformPoint(OtherShapeVertices[MergeIndex].Location);
 
 			MergedShape.Vertices.Emplace(VertexToEmplace);
 		}

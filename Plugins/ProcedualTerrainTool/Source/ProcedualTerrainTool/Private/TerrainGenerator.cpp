@@ -23,17 +23,17 @@ ATerrainGenerator::ATerrainGenerator()
 	RootComponent->SetMobility(EComponentMobility::Static);
 }
 
-///**
-// * Delete me.
-// */
-//void ATerrainGenerator::Test()
-//{
-//	FlushPersistentDebugLines(GetWorld());
-//	for (int i =0; i < TerrainShape.Num(); i++)
-//	{
-//		DrawDebugDirectionalArrow(GetWorld(), FVector(TerrainShape.Vertices[i], 0), FVector(TerrainShape.Vertices[(i + 1) % TerrainShape.Num()], 0), 200, FColor::MakeRandomColor(), true, 0, 0U, 5);
-//	}
-//}
+/**
+ * Delete me.
+ */
+void ATerrainGenerator::Test()
+{
+	FlushPersistentDebugLines(GetWorld());
+	for (int i =0; i < TerrainShape.Num(); i++)
+	{
+		DrawDebugDirectionalArrow(GetWorld(), FVector(TerrainShape.Vertices[i].Location, FMath::Lerp(-75, 100, i / (float)(TerrainShape.Num() -1))), FVector(TerrainShape.Vertices[(i + 1) % TerrainShape.Num()].Location, FMath::Lerp(-75,100, ((i + 1) % TerrainShape.Num())/(float)(TerrainShape.Num()-1))), 200, FColor::MakeRandomColor(), true, 0, 0U, 5);
+	}
+}
 
 /**
  * Begins the terrain generation process.
@@ -229,8 +229,8 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>
 	CollapseMode(Mode),
 	CollapsePredictionDepth(PredictionDepth),
 	UseableTiles(Tiles),
-	Shape(CurrentTerrainShape),
 	RandomStream(GenerationStream),
+	Shape(CurrentTerrainShape),
 	bCompleated(false)
 { 
 	//Create thread.
@@ -352,7 +352,7 @@ bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
 
 			return true;
 		}
-		CollapseMode->ErrorLocation = CollapseMode->TerrainTransform.TransformPosition(FVector(((Shape.Vertices[SocketIndex] + Shape.Vertices[(SocketIndex + 1) % Shape.Num()]) / 2), 0));
+		CollapseMode->ErrorLocation = CollapseMode->TerrainTransform.TransformPosition(FVector(((Shape.Vertices[SocketIndex].Location + Shape.Vertices[(SocketIndex + 1) % Shape.Num()].Location) / 2), 0));
 	}
 	UE_LOG(LogTerrainTool, Error, TEXT("Collapse Failed"));
 	return false;
