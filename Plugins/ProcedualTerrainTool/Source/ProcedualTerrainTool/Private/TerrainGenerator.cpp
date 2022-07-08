@@ -374,14 +374,23 @@ bool FTerrainGenerationWorker::HasNewCollapseableSuperPositions(FTerrainShape Ne
 		{
 			for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperPositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)
 			{
-				FTerrainShape CollapsedShape;
-				FTerrainShapeMergeResult CollapsedShapeMergeResult;
-				if (NewShape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex))
+				if (SearchDepth == 0)
 				{
-					if (SearchDepth == 0 || HasNewCollapseableSuperPositions(CollapsedShape, CollapsedShapeMergeResult, SearchDepth - 1))
+					if (NewShape.MergeShape(CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex))
 					{
 						goto NextSocket;
 					}
+				}
+				else
+				{
+					FTerrainShape CollapsedShape;
+					FTerrainShapeMergeResult CollapsedShapeMergeResult;
+
+					if (NewShape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex) && HasNewCollapseableSuperPositions(CollapsedShape, CollapsedShapeMergeResult, SearchDepth - 1))
+					{
+						goto NextSocket;
+					}
+					
 				}
 			}
 		}

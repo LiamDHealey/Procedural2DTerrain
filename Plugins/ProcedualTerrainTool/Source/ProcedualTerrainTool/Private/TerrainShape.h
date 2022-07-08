@@ -234,14 +234,11 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		}
 
 		// \/ Detect if merge is possible \/ //
-
-
 		bool bSearchingForVertex1 = false;
 		bool bNeedsToSearchForVertex1 = true;
 		do
 		{
 			//Reset indices
-
 			int SearchIndex = UPTTMath::Mod(FaceIndex + bSearchingForVertex1, Num());
 			int OtherSearchIndex = UPTTMath::Mod(OtherFaceIndex - bSearchingForVertex1, Other.Num());
 
@@ -249,7 +246,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 			do
 			{
 				//Test socket connectivity
-				switch (FTerrainVertex::CanVerticesConnect(Vertices[SearchIndex], Vertices[UPTTMath::Mod(SearchIndex + 1, Num())], Other.Vertices[OtherSearchIndex], Other.Vertices[UPTTMath::Mod(OtherSearchIndex - 1, Num())]))
+				switch (FTerrainVertex::CanVerticesConnect(Vertices[SearchIndex], Vertices[UPTTMath::Mod(SearchIndex + 1, Num())], Other.Vertices[UPTTMath::Mod(OtherSearchIndex + 1, Other.Num())], Other.Vertices[OtherSearchIndex]))
 				{
 				case EConnectionResult::No:
 					return false;
@@ -300,7 +297,6 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 			bSearchingForVertex1 = !bSearchingForVertex1;
 
 		} while ((bSearchingForVertex1));
-
 	skipLoop:
 		return true;
 	}
@@ -341,20 +337,19 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 		int OtherMergeIndex1 = UPTTMath::Mod(OtherFaceIndex + 1, Other.Num());
 		int OtherMergeIndex2 = OtherFaceIndex;
 
-
 		bool bSearchingForVertex1 = false;
 		bool bNeedsToSearchForVertex1 = true;
 		do
 		{
 			//Reset indices
-			int SearchIndex = UPTTMath::Mod(FaceIndex + bSearchingForVertex1, Num());
-			int OtherSearchIndex = UPTTMath::Mod(OtherFaceIndex - bSearchingForVertex1, Other.Num());
+			int SearchIndex = UPTTMath::Mod(FaceIndex - bSearchingForVertex1, Num());
+			int OtherSearchIndex = UPTTMath::Mod(OtherFaceIndex + bSearchingForVertex1, Other.Num());
 
 			//Search all of shapes sockets to detect if connection is possible
 			do
 			{
 				//Test socket connectivity
-				switch (FTerrainVertex::CanVerticesConnect(Vertices[SearchIndex], Vertices[UPTTMath::Mod(SearchIndex + 1, Num())], Other.Vertices[UPTTMath::Mod(OtherSearchIndex + 1, Other.Num())], Other.Vertices[OtherSearchIndex]))
+				switch (FTerrainVertex::CanVerticesConnect(Vertices[SearchIndex], Vertices[UPTTMath::Mod(SearchIndex + 1, Num())], Other.Vertices[UPTTMath::Mod(OtherSearchIndex - 1, Other.Num())], Other.Vertices[OtherSearchIndex]))
 				{
 				case EConnectionResult::No:
 					MergedShape = FTerrainShape();
@@ -363,7 +358,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 				case EConnectionResult::CheckVertex1:
 					if (!bSearchingForVertex1)
 					{
-						MergeIndex2 = SearchIndex;
+						MergeIndex2 = UPTTMath::Mod(SearchIndex + 1, Num());
 						OtherMergeIndex2 = OtherSearchIndex;
 
 						if (bNeedsToSearchForVertex1)
@@ -378,7 +373,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 					if (bSearchingForVertex1)
 					{
 						MergeIndex1 = SearchIndex;
-						OtherMergeIndex1 = OtherSearchIndex;
+						OtherMergeIndex1 = UPTTMath::Mod(OtherSearchIndex + 1, Num());
 						goto nextLoop; 
 					}
 					bNeedsToSearchForVertex1 = false;
@@ -401,8 +396,8 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 				}
 
 				//Iterate Indices
-				SearchIndex = UPTTMath::Mod(SearchIndex + (bSearchingForVertex1 ? 1 : -1), Num());
-				OtherSearchIndex = UPTTMath::Mod(OtherSearchIndex + (!bSearchingForVertex1 ? 1 : -1), Other.Num());
+				SearchIndex = UPTTMath::Mod(SearchIndex + (!bSearchingForVertex1 ? 1 : -1), Num());
+				OtherSearchIndex = UPTTMath::Mod(OtherSearchIndex + (bSearchingForVertex1 ? 1 : -1), Other.Num());
 
 			} while (SearchIndex != FaceIndex);
 			ensureMsgf(false, TEXT("Shape indices mismatch"));

@@ -140,7 +140,7 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 	ErrorLocation = FVector::ZeroVector;
 	TileIndex = FMath::Clamp(TileIndex, 0, SpawnableTiles.Num() - 1);
 
-	if (!SuperPositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty())
+	if (!SuperPositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty() && IsValid(CollapseLocationMarker))
 	{
 		//Get socket closest to center
 		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
