@@ -138,16 +138,16 @@ UManualCollapseMode::UManualCollapseMode()
 bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
 {
 	ErrorLocation = FVector::ZeroVector;
-	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
+	if (!SuperPositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty())
 	{
 		//Get socket closest to center
 		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
 		int SocketIndex = 0;
 
-		float ClosestDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocationMarker->GetActorLocation())));
+		float ClosestDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SocketIndex].Location + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()].Location) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocationMarker->GetActorLocation())));
 		for (int SearchIndex = 1; SearchIndex < CurrentShape.Num(); SearchIndex++)
 		{
-			float SeachDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocationMarker->GetActorLocation())));
+			float SeachDistanceSquared = FVector2D::DistSquared((CurrentShape.Vertices[SearchIndex].Location + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()].Location) / 2, FVector2D(TerrainTransform.InverseTransformPosition(CollapseLocationMarker->GetActorLocation())));
 			if (SeachDistanceSquared < ClosestDistanceSquared)
 			{
 				ClosestDistanceSquared = SeachDistanceSquared;
@@ -174,7 +174,7 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 		if (PossibleCollapses.IsEmpty())
 		{
 			UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
-			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2), 0));
+			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex].Location + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()].Location) / 2), 0));
 			SuperPositionIndex = FIntVector(0, FMath::Clamp(TileIndex, 0, SpawnableTiles.Num()), 0);
 			return false;
 		}
@@ -216,16 +216,16 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
  */
 bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
 {
-	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
+	if (!SuperPositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty())
 	{
 		//Get socket closest to center
 		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
 		int SocketIndex = 0;
 
-		float ClosestDistanceSquared = ((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2).SquaredLength();
+		float ClosestDistanceSquared = ((CurrentShape.Vertices[SocketIndex].Location + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()].Location) / 2).SquaredLength();
 		for (int SearchIndex = 1; SearchIndex < CurrentShape.Num(); SearchIndex++)
 		{
-			float SeachDistanceSquared = ((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2).SquaredLength();
+			float SeachDistanceSquared = ((CurrentShape.Vertices[SearchIndex].Location + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()].Location) / 2).SquaredLength();
 			if (SeachDistanceSquared < ClosestDistanceSquared)
 			{
 				ClosestDistanceSquared = SeachDistanceSquared;
@@ -254,7 +254,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 		if (PossibleCollapses.IsEmpty())
 		{
 			UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
-			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2), 0));
+			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex].Location + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()].Location) / 2), 0));
 			SuperPositionIndex = FIntVector(0, 0, 0);
 			return false;
 		}
@@ -299,7 +299,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 	}
 	//Fail for invalid shapes
 	SuperPositionIndex = FIntVector(0,0,0);
-	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
+	return CurrentShape.Vertices.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
 }
 
 /**
@@ -334,7 +334,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
  */
 bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles)
 {
-	if (!SuperPositions.IsEmpty() && !CurrentShape.ShapeSockets.IsEmpty())
+	if (!SuperPositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty())
 	{
 		//Find left most point in extent.
 		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
@@ -344,7 +344,7 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 
 		for (int SearchIndex = 0; SearchIndex < CurrentShape.Num(); SearchIndex++)
 		{
-			FVector2D SocketLocation = ((CurrentShape.Vertices[SearchIndex] + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()]) / 2).GetAbs();
+			FVector2D SocketLocation = ((CurrentShape.Vertices[SearchIndex].Location + CurrentShape.Vertices[(SearchIndex + 1) % CurrentShape.Num()].Location) / 2).GetAbs();
 			if (SocketLocation.X < LeastXValue && ((SocketLocation.X < abs(Extent.X)) && (SocketLocation.Y < abs(Extent.Y))))
 			{
 				bValidSocketFound = true;
@@ -374,7 +374,7 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 		if (PossibleCollapses.IsEmpty())
 		{
 			UE_LOG(LogTerrainTool, Error, TEXT("Shapes do not tile, Consider adding another shape to fill the gap at the marked point or regenerating the terrain"), SocketIndex);
-			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex] + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()]) / 2), 0));
+			ErrorLocation = TerrainTransform.TransformPosition(FVector(((CurrentShape.Vertices[SocketIndex].Location + CurrentShape.Vertices[(SocketIndex + 1) % CurrentShape.Num()].Location) / 2), 0));
 			SuperPositionIndex = FIntVector(0, 0, 0);
 			return false;
 		}
@@ -416,7 +416,7 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 		return false;
 	}
 	SuperPositionIndex = FIntVector(0, 0, 0);
-	return CurrentShape.ShapeSockets.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
+	return CurrentShape.Vertices.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
 }
 
 /**
