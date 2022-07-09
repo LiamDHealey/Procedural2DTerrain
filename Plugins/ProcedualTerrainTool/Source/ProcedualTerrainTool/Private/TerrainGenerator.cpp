@@ -386,7 +386,7 @@ bool FTerrainGenerationWorker::HasNewCollapseableSuperPositions(FTerrainShape Ne
 					FTerrainShape CollapsedShape;
 					FTerrainShapeMergeResult CollapsedShapeMergeResult;
 
-					if (NewShape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex) && HasNewCollapseableSuperPositions(CollapsedShape, CollapsedShapeMergeResult, SearchDepth - 1))
+					if (NewShape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex, false) && HasNewCollapseableSuperPositions(CollapsedShape, CollapsedShapeMergeResult, SearchDepth - 1))
 					{
 						goto NextSocket;
 					}

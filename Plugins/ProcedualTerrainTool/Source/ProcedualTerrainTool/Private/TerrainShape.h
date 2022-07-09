@@ -314,9 +314,10 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	 * @param FaceIndex - The index of the face on this shape to start the merge at.
 	 * @param Other - The other shape to query.
 	 * @param FaceIndex - The index of the face on this the other shape to start the merge at.
+	 * @param bCalculateTransform -  Whether or not to calculate the merge transform and adjust vertex locations.
 	 * @return Whether or not this shape can be merged with the other shape.
 	 */
-	bool MergeShape(FTerrainShape& MergedShape, FTerrainShapeMergeResult& MergeResult, int FaceIndex, FTerrainShape Other, int OtherFaceIndex) const
+	bool MergeShape(FTerrainShape& MergedShape, FTerrainShapeMergeResult& MergeResult, int FaceIndex, FTerrainShape Other, int OtherFaceIndex, bool bCalculateTransform = true) const
 	{
 		MergeResult = FTerrainShapeMergeResult();
 
@@ -437,17 +438,20 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 
 
 		//Get Other Transform
-		FQuat2D TargetAt1 = FQuat2D((Vertices[MergeIndex1].Location - Vertices[UPTTMath::Mod(MergeIndex1 + 1, Vertices.Num())].Location).GetSafeNormal());
-		FQuat2D InitialAt1 = FQuat2D((Other.Vertices[OtherMergeIndex1].Location - Other.Vertices[UPTTMath::Mod(OtherMergeIndex1 - 1, Other.Vertices.Num())].Location).GetSafeNormal());
-		FQuat2D RotationAt1 = InitialAt1.Inverse().Concatenate(TargetAt1);
-		FVector2D TranslationAt1 = Vertices[MergeIndex1].Location - RotationAt1.TransformPoint(Other.Vertices[OtherMergeIndex1].Location);
+		if (bCalculateTransform)
+		{
+			FQuat2D TargetAt1 = FQuat2D((Vertices[MergeIndex1].Location - Vertices[UPTTMath::Mod(MergeIndex1 + 1, Vertices.Num())].Location).GetSafeNormal());
+			FQuat2D InitialAt1 = FQuat2D((Other.Vertices[OtherMergeIndex1].Location - Other.Vertices[UPTTMath::Mod(OtherMergeIndex1 - 1, Other.Vertices.Num())].Location).GetSafeNormal());
+			FQuat2D RotationAt1 = InitialAt1.Inverse().Concatenate(TargetAt1);
+			FVector2D TranslationAt1 = Vertices[MergeIndex1].Location - RotationAt1.TransformPoint(Other.Vertices[OtherMergeIndex1].Location);
 
-		FQuat2D TargetAt2 = FQuat2D((Vertices[MergeIndex2].Location - Vertices[UPTTMath::Mod(MergeIndex2 - 1, Vertices.Num())].Location).GetSafeNormal());
-		FQuat2D InitialAt2 = FQuat2D((Other.Vertices[OtherMergeIndex2].Location - Other.Vertices[UPTTMath::Mod(OtherMergeIndex2 + 1, Other.Vertices.Num())].Location).GetSafeNormal());
-		FQuat2D RotationAt2 = InitialAt2.Inverse().Concatenate(TargetAt2);
-		FVector2D TranslationAt2 = Vertices[MergeIndex2].Location - RotationAt2.TransformPoint(Other.Vertices[OtherMergeIndex2].Location);
+			FQuat2D TargetAt2 = FQuat2D((Vertices[MergeIndex2].Location - Vertices[UPTTMath::Mod(MergeIndex2 - 1, Vertices.Num())].Location).GetSafeNormal());
+			FQuat2D InitialAt2 = FQuat2D((Other.Vertices[OtherMergeIndex2].Location - Other.Vertices[UPTTMath::Mod(OtherMergeIndex2 + 1, Other.Vertices.Num())].Location).GetSafeNormal());
+			FQuat2D RotationAt2 = InitialAt2.Inverse().Concatenate(TargetAt2);
+			FVector2D TranslationAt2 = Vertices[MergeIndex2].Location - RotationAt2.TransformPoint(Other.Vertices[OtherMergeIndex2].Location);
 
-		MergeResult.Transform = FTransform2D(FQuat2D(((RotationAt1.GetVector() + RotationAt2.GetVector()) * 0.5).GetSafeNormal()), (TranslationAt1 + TranslationAt2) * 0.5);
+			MergeResult.Transform = FTransform2D(FQuat2D(((RotationAt1.GetVector() + RotationAt2.GetVector()) * 0.5).GetSafeNormal()), (TranslationAt1 + TranslationAt2) * 0.5);
+		}
 
 
 		//Add other vertices
