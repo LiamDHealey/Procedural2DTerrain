@@ -23,17 +23,17 @@ ATerrainGenerator::ATerrainGenerator()
 	RootComponent->SetMobility(EComponentMobility::Static);
 }
 
-///**
-// * Delete me.
-// */
-//void ATerrainGenerator::Test()
-//{
-//	FlushPersistentDebugLines(GetWorld());
-//	for (int i =0; i < TerrainShape.Num(); i++)
-//	{
-//		DrawDebugDirectionalArrow(GetWorld(), FVector(TerrainShape.Vertices[i].Location, FMath::Lerp(-75, 100, i / (float)(TerrainShape.Num() -1))), FVector(TerrainShape.Vertices[(i + 1) % TerrainShape.Num()].Location, FMath::Lerp(-75,100, ((i + 1) % TerrainShape.Num())/(float)(TerrainShape.Num()-1))), 200, FColor::MakeRandomColor(), true, 0, 0U, 5);
-//	}
-//}
+/**
+ * Delete me.
+ */
+void ATerrainGenerator::Test()
+{
+	FlushPersistentDebugLines(GetWorld());
+	for (int i =0; i < TerrainShape.Num(); i++)
+	{
+		DrawDebugDirectionalArrow(GetWorld(), FVector(TerrainShape.Vertices[i].Location, FMath::Lerp(-75, 100, i / (float)(TerrainShape.Num() -1))), FVector(TerrainShape.Vertices[(i + 1) % TerrainShape.Num()].Location, FMath::Lerp(-75,100, ((i + 1) % TerrainShape.Num())/(float)(TerrainShape.Num()-1))), 200, FColor::MakeRandomColor(), true, 0, 0U, 5);
+	}
+}
 
 /**
  * Begins the terrain generation process.
