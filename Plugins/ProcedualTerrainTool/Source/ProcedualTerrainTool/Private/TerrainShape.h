@@ -32,7 +32,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainVertex
 	FName Type;
 
 	//The location of the vertex relative to the terrain.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	FVector2D Location;
 
 	//The length of the edge after this vertex. Will only connect to vertices with the same length.
@@ -41,7 +41,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainVertex
 
 	//The interior angle at the vertex.
 	UPROPERTY(VisibleAnywhere)
-	float Angle = 2 * PI;
+	double Angle = 2 * PI;
 
 	/**
 	 * Constructs a vertex given adjacent vertex locations and a type.
@@ -233,14 +233,19 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 			return false;
 		}
 
+		if (Vertices.Num() == 8 && Vertices[0].Angle > 4.7 && Vertices[0].Angle < 4.8 && FaceIndex == 7 && Vertices[7].Angle == HALF_PI)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Poop may happen"));
+		}
+
 		// \/ Detect if merge is possible \/ //
 		bool bSearchingForVertex1 = false;
 		bool bNeedsToSearchForVertex1 = true;
 		do
 		{
 			//Reset indices
-			int SearchIndex = UPTTMath::Mod(FaceIndex + bSearchingForVertex1, Num());
-			int OtherSearchIndex = UPTTMath::Mod(OtherFaceIndex - bSearchingForVertex1, Other.Num());
+			int SearchIndex = UPTTMath::Mod(FaceIndex - bSearchingForVertex1, Num());
+			int OtherSearchIndex = UPTTMath::Mod(OtherFaceIndex + bSearchingForVertex1, Other.Num());
 
 			//Search all of shapes sockets to detect if connection is possible
 			do
@@ -274,7 +279,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 					break;
 
 				case EConnectionResult::Yes:
-					if (ensureMsgf(SearchIndex == FaceIndex, TEXT("Improper Shape Angle Detection")))
+					if (ensureAlwaysMsgf(SearchIndex == FaceIndex, TEXT("Improper Shape Angle Detection")))
 					{
 						goto skipLoop;
 					}
@@ -287,8 +292,8 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 				}
 
 				//Iterate Indices
-				SearchIndex = UPTTMath::Mod(SearchIndex + (bSearchingForVertex1 ? 1 : -1), Num());
-				OtherSearchIndex = UPTTMath::Mod(OtherSearchIndex + (!bSearchingForVertex1 ? 1 : -1), Other.Num());
+				SearchIndex = UPTTMath::Mod(SearchIndex + (!bSearchingForVertex1 ? 1 : -1), Num());
+				OtherSearchIndex = UPTTMath::Mod(OtherSearchIndex + (bSearchingForVertex1 ? 1 : -1), Other.Num());
 
 			} while (SearchIndex != FaceIndex);
 			ensureMsgf(false, TEXT("Shape indices mismatch"));
@@ -373,7 +378,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 					if (bSearchingForVertex1)
 					{
 						MergeIndex1 = SearchIndex;
-						OtherMergeIndex1 = UPTTMath::Mod(OtherSearchIndex + 1, Num());
+						OtherMergeIndex1 = UPTTMath::Mod(OtherSearchIndex + 1, Other.Num());
 						goto nextLoop; 
 					}
 					bNeedsToSearchForVertex1 = false;
@@ -426,16 +431,23 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 
 		//Adjust socket angles
 		TArray<FTerrainVertex> OtherShapeVertices = TArray<FTerrainVertex>(Other.Vertices);
-		OtherShapeVertices[UPTTMath::Mod(OtherMergeIndex1, OtherShapeVertices.Num())].IncreaseAngle(Vertices[MergeIndex1].Angle);
+		OtherShapeVertices[OtherMergeIndex1].IncreaseAngle(Vertices[MergeIndex1].Angle);
 
 		MergedShape.Vertices[0].IncreaseAngle(Other.Vertices[OtherMergeIndex2].Angle);
 
 
 		//Get Other Transform
-		FQuat2D Target = FQuat2D((Vertices[MergeIndex2].Location - Vertices[UPTTMath::Mod(MergeIndex2 - 1, Vertices.Num())].Location).GetSafeNormal());
-		FQuat2D Initial = FQuat2D((Other.Vertices[OtherMergeIndex2].Location - Other.Vertices[UPTTMath::Mod(OtherMergeIndex2 + 1, Other.Vertices.Num())].Location).GetSafeNormal());
-		FQuat2D Rotation = Initial.Inverse().Concatenate(Target);
-		MergeResult.Transform = FTransform2D(Rotation, Vertices[MergeIndex2].Location - Rotation.TransformPoint(Other.Vertices[OtherMergeIndex2].Location));
+		FQuat2D TargetAt1 = FQuat2D((Vertices[MergeIndex1].Location - Vertices[UPTTMath::Mod(MergeIndex1 + 1, Vertices.Num())].Location).GetSafeNormal());
+		FQuat2D InitialAt1 = FQuat2D((Other.Vertices[OtherMergeIndex1].Location - Other.Vertices[UPTTMath::Mod(OtherMergeIndex1 - 1, Other.Vertices.Num())].Location).GetSafeNormal());
+		FQuat2D RotationAt1 = InitialAt1.Inverse().Concatenate(TargetAt1);
+		FVector2D TranslationAt1 = Vertices[MergeIndex1].Location - RotationAt1.TransformPoint(Other.Vertices[OtherMergeIndex1].Location);
+
+		FQuat2D TargetAt2 = FQuat2D((Vertices[MergeIndex2].Location - Vertices[UPTTMath::Mod(MergeIndex2 - 1, Vertices.Num())].Location).GetSafeNormal());
+		FQuat2D InitialAt2 = FQuat2D((Other.Vertices[OtherMergeIndex2].Location - Other.Vertices[UPTTMath::Mod(OtherMergeIndex2 + 1, Other.Vertices.Num())].Location).GetSafeNormal());
+		FQuat2D RotationAt2 = InitialAt2.Inverse().Concatenate(TargetAt2);
+		FVector2D TranslationAt2 = Vertices[MergeIndex2].Location - RotationAt2.TransformPoint(Other.Vertices[OtherMergeIndex2].Location);
+
+		MergeResult.Transform = FTransform2D(FQuat2D(((RotationAt1.GetVector() + RotationAt2.GetVector()) * 0.5).GetSafeNormal()), (TranslationAt1 + TranslationAt2) * 0.5);
 
 
 		//Add other vertices
