@@ -197,6 +197,155 @@ private:
 \* /\ ================== /\ */
 
 
+/* \/ =============== \/ *\
+|  \/ FSuperposition  \/  |
+\* \/ =============== \/ */
+
+/**
+ * Information about a superposition, its entropy, and how it will collapse.
+ */
+USTRUCT(BlueprintType)
+struct PROCEDUALTERRAINTOOL_API FSuperposition
+{
+	GENERATED_BODY()
+
+	//Whether or not each orientation of each available shape can exist at this location.
+	TArray<TArray<bool>> States;
+
+	/**
+	 * Initializes a FSuperposition.
+	 */
+	FSuperposition(TArray<TArray<bool>> SuperpositionStates = TArray<TArray<bool>>())
+	{
+		States = SuperpositionStates;
+		ValidStates = TMap<FIntPoint, float>();
+		Entropy = 0;
+		VertexMergePercent = 0;
+
+		for (int ShapeIndex = 0; ShapeIndex < SuperpositionStates.Num(); ShapeIndex++)
+		{
+			for (int FaceIndex = 0; FaceIndex < SuperpositionStates[ShapeIndex].Num(); FaceIndex++)
+			{
+				if (SuperpositionStates[ShapeIndex][FaceIndex])
+				{
+					Entropy++;
+					ValidStates.Add(FIntPoint(ShapeIndex, FaceIndex), 0);
+				}
+			}
+		}
+	}
+
+	void UpdateSuperPosition(bool bNewState, float MergedPercent, FIntVector MergeCoordinates)
+	{
+		if (ensureAlways(States.IsValidIndex(MergeCoordinates.Y) && States[MergeCoordinates.Y].IsValidIndex(MergeCoordinates.Z)))
+		{
+			FIntPoint StateCoords = FIntPoint(MergeCoordinates.Y, MergeCoordinates.Z);
+			if (bNewState)
+			{
+				if (ValidStates.Contains(StateCoords))
+				{
+					VertexMergePercent = (VertexMergePercent * Entropy - ValidStates.FindRef(StateCoords) + MergedPercent) / (Entropy + 1);
+				}
+				else
+				{
+					VertexMergePercent = (VertexMergePercent * Entropy + MergedPercent) / (Entropy + 1);
+				}
+
+				ValidStates.Add(StateCoords, MergedPercent);
+			}
+			else
+			{
+				if (ValidStates.Contains(StateCoords))
+				{
+					VertexMergePercent = (VertexMergePercent * Entropy - ValidStates.FindRef(StateCoords)) / (Entropy - 1);
+				}
+
+				ValidStates.Remove(StateCoords);
+			}
+
+			if (States[MergeCoordinates.Y][MergeCoordinates.Z] != bNewState)
+			{
+				Entropy += bNewState ? 1 : -1;
+				States[MergeCoordinates.Y][MergeCoordinates.Z] = bNewState;
+			}
+		}
+	}
+
+	FIntVector GetRandomState(FRandomStream& RandomStream)
+	{
+		int StateIndex = RandomStream.RandHelper(ValidStates.Num());
+		for (TPair<FIntPoint, float> EachValidState : ValidStates)
+		{
+			if (StateIndex == 0)
+			{
+				return FIntVector(0, EachValidState.Key.X, EachValidState.Key.Y);
+			}
+			StateIndex--;
+		}
+		return FIntVector::ZeroValue;
+	}
+
+	bool IsCollapsePossible() const
+	{
+		return Entropy > 0;
+	}
+
+	bool IsCollapsePossible(FIntVector MergeCoordinates) const
+	{
+		return Entropy > 0 && States.IsValidIndex(MergeCoordinates.Y) && States[MergeCoordinates.Y].IsValidIndex(MergeCoordinates.Z) && States[MergeCoordinates.Y][MergeCoordinates.Z];
+	}
+
+	bool operator==(const FSuperposition& OtherData) const
+	{
+		return VertexMergePercent == OtherData.VertexMergePercent && Entropy == OtherData.Entropy;
+	}
+
+	bool operator>(const FSuperposition& OtherData) const
+	{
+		if (VertexMergePercent > OtherData.VertexMergePercent)
+		{
+			return false;
+		}
+
+		if (VertexMergePercent == OtherData.VertexMergePercent)
+		{
+			return Entropy > OtherData.Entropy;
+		}
+
+		return true;
+	}
+
+	bool operator<(const FSuperposition& OtherData) const
+	{
+		if (VertexMergePercent > OtherData.VertexMergePercent)
+		{
+			return true;
+		}
+
+		if (VertexMergePercent == OtherData.VertexMergePercent)
+		{
+			return Entropy < OtherData.Entropy;
+		}
+		
+		return false;
+	}
+
+private:
+	//All possible state coordinates.
+	TMap<FIntPoint, float> ValidStates;
+
+	//The average percent of vertices merged when this superposition collapses
+	float VertexMergePercent = 0;
+
+	//The number of possible states of this superposition.
+	int Entropy;
+};
+
+/* /\ =============== /\ *\
+|  /\ FSuperposition  /\  |
+\* /\ =============== /\ */
+
+
 /* \/ ========================= \/ *\
 |  \/ FTerrainGenerationWorker  \/  |
 \* \/ ========================= \/ */
@@ -241,7 +390,7 @@ public:
 	 * @param Mode - The method used for deciding which superposition to collapse next.
 	 * @param PredictionDepth - How many iterations into the future to search for failed superpositions.
 	 */
-	FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, FRandomStream& RandomStream, const int PredictionDepth = 0, FTerrainShape CurrentTerrainShape = FTerrainShape());
+	FTerrainGenerationWorker(TArray<FTerrainTileSpawnData> Tiles, UProcedualCollapseMode* Mode, FRandomStream& GenerationStream, const int PredictionDepth = 0, FTerrainShape CurrentTerrainShape = FTerrainShape());
 
 	/**
 	 * Destructs this and handles thread deletion.
@@ -292,15 +441,15 @@ private:
 	//The shapes of the tiles.
 	int MaxTileVertices;
 	//The superposition of an empty socket.
-	TArray<TArray<bool>> BaseSuperPositions;
+	TArray<TArray<bool>> BaseSuperpositions;
 
 
 	//Will be written to as superpositions are collapsed.
 	TArray<FTerrainTileInstanceData> TerrainTiles;
 	//The current shape of the terrain.
 	FTerrainShape Shape;
-	//Whether or not a given tile can connect to a given socket. SuperPositions[Socket to connect to][Tile to add][Socket on tile to connect to].
-	TArray<TArray<TArray<bool>>> SuperPositions = TArray<TArray<TArray<bool>>>();
+	//Whether or not a given tile can connect to a given socket. Superpositions[Socket to connect to][Tile to add][Socket on tile to connect to].
+	TArray<FSuperposition> Superpositions = TArray<FSuperposition>();
 	//Whether or not the task is complete.
 	bool bCompleated;
 
@@ -312,6 +461,7 @@ private:
 	 */
 	bool CollapseSuperPosition(FIntVector Index);
 
+	bool GetLowestEntropySuperPosition(FIntVector& SuperPositionLocation);
 	/**
 	 * Whether or not there is an available super position to collapse after the given merge.
 	 * 
@@ -319,7 +469,7 @@ private:
 	 * @param MergeResult - The result of the merge that most recently happened.
 	 * @param SeachDeapth - How many iterations into the future to search.
 	 */
-	bool HasNewCollapseableSuperPositions(FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult, int SearchDepth = 0) const;
+	bool HasNewCollapseableSuperpositions(FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult, int SearchDepth = 0) const;
 
 	/**
 	 * Refreshes superpositions after a given change in vertices.
@@ -328,7 +478,7 @@ private:
 	 * @param ShapeVertexShrinkage = The number of old vertices removed from the shape.
 	 * @param ShapeVertexOffset = The shift in vertex index.
 	 */
-	void RefreshSuperPositions(int ShapeVertexGrowth, int ShapeVertexShrinkage = 0, int ShapeVertexOffset = 0);
+	void RefreshSuperpositions(int ShapeVertexGrowth, int ShapeVertexShrinkage = 0, int ShapeVertexOffset = 0);
 };
 
 /* /\ ========================= /\ *\

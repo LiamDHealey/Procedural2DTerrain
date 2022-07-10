@@ -228,8 +228,8 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>
 	bStopped(false),
 	CollapseMode(Mode),
 	CollapsePredictionDepth(PredictionDepth),
-	UseableTiles(Tiles),
 	RandomStream(GenerationStream),
+	UseableTiles(Tiles),
 	Shape(CurrentTerrainShape),
 	bCompleated(false)
 { 
@@ -241,7 +241,7 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>
 
 	//Set up generation constants.
 	TileShapes = TArray<FTerrainShape>();
-	BaseSuperPositions = TArray<TArray<bool>>();
+	BaseSuperpositions = TArray<TArray<bool>>();
 	MaxTileVertices = 0;
 
 	for (FTerrainTileSpawnData EachUseableTile : UseableTiles)
@@ -251,17 +251,17 @@ FTerrainGenerationWorker::FTerrainGenerationWorker(TArray<FTerrainTileSpawnData>
 
 		TArray<bool> Faces = TArray<bool>();
 		Faces.Init(true, EachUseableTile.TileData->Verticies.Num());
-		BaseSuperPositions.Emplace(Faces);
+		BaseSuperpositions.Emplace(Faces);
 	}
 
-	SuperPositions = TArray<TArray<TArray<bool>>>();
+	Superpositions = TArray<FSuperposition>();
 	if (Shape.Num() == 0)
 	{
-		SuperPositions.Emplace(BaseSuperPositions);
+		Superpositions.Emplace(FSuperposition(BaseSuperpositions));
 	}
 	else
 	{
-		RefreshSuperPositions(Shape.Num());
+		RefreshSuperpositions(Shape.Num());
 	}
 	return;
 }
@@ -301,11 +301,14 @@ uint32 FTerrainGenerationWorker::Run()
 
 	while (!(bCompleated || bStopped))
 	{
-		if (!SuperPositions.IsEmpty())
+		if (!Superpositions.IsEmpty())
 		{
-			FIntVector CollapseResult;
-			bCompleated = !CollapseMode->GetSuperPositionsToCollapse(CollapseResult, Shape, SuperPositions, UseableTiles, RandomStream);
-			bCompleated = !CollapseSuperPosition(CollapseResult) || bCompleated;
+			FIntVector CollapseCoordinates;
+			bCompleated = !GetLowestEntropySuperPosition(CollapseCoordinates);
+			if (!bCompleated)
+			{
+				bCompleated = !CollapseSuperPosition(CollapseCoordinates) || bCompleated;
+			}
 		}
 		else
 		{
@@ -330,31 +333,61 @@ void FTerrainGenerationWorker::Stop()
 /**
  * Attempts to collapse a super position at a given index.
  *
- * @param Index - X = Socket to connect to, Y = Tile to add, Z = Socket on tile to connect to.
+ * @param CollapseCoordinates - X = Socket to connect to, Y = Tile to add, Z = Socket on tile to connect to.
  * @return Whether or not the collapse was successful.
  */
-bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
+bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector CollapseCoordinates)
 {
-	int SocketIndex = Index.X;
-	int ShapeIndex = Index.Y;
-	int FaceIndex = Index.Z;
-
-	if (SuperPositions.IsValidIndex(SocketIndex) && SuperPositions[SocketIndex].IsValidIndex(ShapeIndex) && SuperPositions[SocketIndex][ShapeIndex].IsValidIndex(FaceIndex) && SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
+	if (Superpositions.IsValidIndex(CollapseCoordinates.X) && Superpositions[CollapseCoordinates.X].IsCollapsePossible(CollapseCoordinates))
 	{
 		FTerrainShape NewShape;
 		FTerrainShapeMergeResult MergeResult;
 
-		if (ensureAlwaysMsgf(Shape.MergeShape(NewShape, MergeResult, SocketIndex, TileShapes[ShapeIndex], FaceIndex), TEXT("Super Position Array False at %i, %i, %i"), SocketIndex, ShapeIndex, FaceIndex))
+		if (ensureAlwaysMsgf(Shape.MergeShape(NewShape, MergeResult, CollapseCoordinates.X, TileShapes[CollapseCoordinates.Y], CollapseCoordinates.Z), TEXT("Super Position Array False at %i, %i, %i"), CollapseCoordinates.X, CollapseCoordinates.Y, CollapseCoordinates.Z))
 		{
-			TerrainTiles.Emplace(FTerrainTileInstanceData(ShapeIndex, MergeResult));
+			TerrainTiles.Emplace(FTerrainTileInstanceData(CollapseCoordinates.Y, MergeResult));
 			Shape = NewShape;
-			RefreshSuperPositions(MergeResult.Growth, MergeResult.Shrinkage, MergeResult.Offset);
+			RefreshSuperpositions(MergeResult.Growth, MergeResult.Shrinkage, MergeResult.Offset);
 
 			return true;
 		}
-		CollapseMode->ErrorLocation = CollapseMode->TerrainTransform.TransformPosition(FVector(((Shape.Vertices[SocketIndex].Location + Shape.Vertices[(SocketIndex + 1) % Shape.Num()].Location) / 2), 0));
+		CollapseMode->ErrorLocation = CollapseMode->TerrainTransform.TransformPosition(FVector(((Shape.Vertices[CollapseCoordinates.X].Location + Shape.Vertices[(CollapseCoordinates.X + 1) % Shape.Num()].Location) / 2), 0));
 	}
 	UE_LOG(LogTerrainTool, Error, TEXT("Collapse Failed"));
+	return false;
+}
+
+bool FTerrainGenerationWorker::GetLowestEntropySuperPosition(FIntVector& SuperPositionLocation)
+{
+	if (ensure(!Superpositions.IsEmpty()))
+	{
+		TArray<int> LowestEntropyIndices = TArray<int>();
+		LowestEntropyIndices.Add(0);
+
+		for (int SocketIndex = 0; SocketIndex < Superpositions.Num(); SocketIndex++)
+		{
+			if (ensure(Superpositions[SocketIndex].IsCollapsePossible()))
+			{
+				if (Superpositions[LowestEntropyIndices[0]] == Superpositions[SocketIndex])
+				{
+					LowestEntropyIndices.Add(SocketIndex);
+				}
+				else if (Superpositions[LowestEntropyIndices[0]] > Superpositions[SocketIndex])
+				{
+					LowestEntropyIndices.Empty();
+					LowestEntropyIndices.Add(SocketIndex);
+				}
+			}
+			else
+			{
+				return false;
+			}
+		}
+		int SocketIndex = LowestEntropyIndices[RandomStream.RandHelper(LowestEntropyIndices.Num())];
+		SuperPositionLocation = Superpositions[SocketIndex].GetRandomState(RandomStream);
+		SuperPositionLocation.X = SocketIndex;
+		return true;
+	}
 	return false;
 }
 
@@ -365,14 +398,14 @@ bool FTerrainGenerationWorker::CollapseSuperPosition(FIntVector Index)
  * @param MergeResult - The result of the merge that most recently happened.
  * @param SeachDeapth - How many iterations into the future to search.
  */
-bool FTerrainGenerationWorker::HasNewCollapseableSuperPositions(FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult, int SearchDepth) const
+bool FTerrainGenerationWorker::HasNewCollapseableSuperpositions(FTerrainShape NewShape, FTerrainShapeMergeResult MergeResult, int SearchDepth) const
 {
 	for (int Offset = 0; Offset < FMath::Min(MergeResult.Growth + 2, NewShape.Num()); Offset++)
 	{
 		int CollapseSocketIndex = UPTTMath::Mod(NewShape.Num() - 1 - MergeResult.Growth + Offset, NewShape.Num());
-		for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
+		for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperpositions.Num(); CollapseShapeIndex++)
 		{
-			for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperPositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)
+			for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperpositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)
 			{
 				if (SearchDepth == 0)
 				{
@@ -386,7 +419,7 @@ bool FTerrainGenerationWorker::HasNewCollapseableSuperPositions(FTerrainShape Ne
 					FTerrainShape CollapsedShape;
 					FTerrainShapeMergeResult CollapsedShapeMergeResult;
 
-					if (NewShape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex, false) && HasNewCollapseableSuperPositions(CollapsedShape, CollapsedShapeMergeResult, SearchDepth - 1))
+					if (NewShape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex, false) && HasNewCollapseableSuperpositions(CollapsedShape, CollapsedShapeMergeResult, SearchDepth - 1))
 					{
 						goto NextSocket;
 					}
@@ -411,21 +444,21 @@ bool FTerrainGenerationWorker::HasNewCollapseableSuperPositions(FTerrainShape Ne
  * @param ShapeVertexShrinkage = The number of old vertices removed from the shape.
  * @param ShapeVertexOffset = The shift in vertex index.
  */
-void FTerrainGenerationWorker::RefreshSuperPositions(int ShapeVertexGrowth, int ShapeVertexShrinkage, int ShapeVertexOffset)
+void FTerrainGenerationWorker::RefreshSuperpositions(int ShapeVertexGrowth, int ShapeVertexShrinkage, int ShapeVertexOffset)
 {
 	//Propagate New Super Positions
-	TArray<TArray<TArray<bool>>> NewSuperPositions = TArray<TArray<TArray<bool>>>();
-	NewSuperPositions.SetNum(Shape.Num());
+	TArray<FSuperposition> NewSuperpositions = TArray<FSuperposition>();
+	NewSuperpositions.SetNum(Shape.Num());
 
-	for (int SuperPositionIndex = 0; SuperPositionIndex < NewSuperPositions.Num(); SuperPositionIndex++)
+	for (int SuperPositionIndex = 0; SuperPositionIndex < NewSuperpositions.Num(); SuperPositionIndex++)
 	{
-		if (SuperPositionIndex < SuperPositions.Num() - ShapeVertexShrinkage)
+		if (SuperPositionIndex < Superpositions.Num() - ShapeVertexShrinkage)
 		{
-			NewSuperPositions[SuperPositionIndex] = SuperPositions[UPTTMath::Mod(SuperPositionIndex - ShapeVertexOffset, SuperPositions.Num())];
+			NewSuperpositions[SuperPositionIndex] = Superpositions[UPTTMath::Mod(SuperPositionIndex - ShapeVertexOffset, Superpositions.Num())];
 		}
 		else
 		{
-			NewSuperPositions[SuperPositionIndex] = BaseSuperPositions;
+			NewSuperpositions[SuperPositionIndex] = BaseSuperpositions;
 		}
 	}
 
@@ -435,31 +468,36 @@ void FTerrainGenerationWorker::RefreshSuperPositions(int ShapeVertexGrowth, int 
 	for (int Offset = 0; Offset < FMath::Min(ShapeVertexGrowth + 2 * MaxTileVertices, Shape.Num()); Offset++)
 	{
 		int CollapseSocketIndex = UPTTMath::Mod(Shape.Num() - MaxTileVertices - ShapeVertexGrowth + Offset, Shape.Num());
-		for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperPositions.Num(); CollapseShapeIndex++)
+		for (int CollapseShapeIndex = 0; CollapseShapeIndex < BaseSuperpositions.Num(); CollapseShapeIndex++)
 		{
-			for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperPositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)
+			for (int CollapseFaceIndex = 0; CollapseFaceIndex < BaseSuperpositions[CollapseShapeIndex].Num(); CollapseFaceIndex++)
 			{
 				FTerrainShape CollapsedShape;
 				FTerrainShapeMergeResult CollapsedShapeMergeResult;
-				if (Shape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex))
+				if (Shape.MergeShape(CollapsedShape, CollapsedShapeMergeResult, CollapseSocketIndex, TileShapes[CollapseShapeIndex], CollapseFaceIndex, false))
 				{
-					bool bCanCollapse = HasNewCollapseableSuperPositions(CollapsedShape, CollapsedShapeMergeResult, CollapsePredictionDepth);
-					NewSuperPositions[CollapseSocketIndex][CollapseShapeIndex][CollapseFaceIndex] = bCanCollapse;
+					bool bCanCollapse = HasNewCollapseableSuperpositions(CollapsedShape, CollapsedShapeMergeResult, CollapsePredictionDepth);
 					if (bCanCollapse)
 					{
+						float MergedPercent = 1.f - (float)(CollapsedShapeMergeResult.Growth - 1) / (float)(BaseSuperpositions[CollapseShapeIndex].Num());
+						NewSuperpositions[CollapseSocketIndex].UpdateSuperPosition(true, MergedPercent, FIntVector(0, CollapseShapeIndex, CollapseFaceIndex));
 						NumberOfPossibleCollapses++;
 						CollapseIndex = FIntVector(CollapseSocketIndex, CollapseShapeIndex, CollapseFaceIndex);
+					}
+					else
+					{
+						NewSuperpositions[CollapseSocketIndex].UpdateSuperPosition(false, 0, FIntVector(0, CollapseShapeIndex, CollapseFaceIndex));
 					}
 				}
 				else
 				{
-					NewSuperPositions[CollapseSocketIndex][CollapseShapeIndex][CollapseFaceIndex] = false;
+					NewSuperpositions[CollapseSocketIndex].UpdateSuperPosition(false, 0, FIntVector(0, CollapseShapeIndex, CollapseFaceIndex));
 				}
 			}
 		}
 	}
 
-	SuperPositions = NewSuperPositions;
+	Superpositions = NewSuperpositions;
 
 	if (NumberOfPossibleCollapses == 1)
 	{

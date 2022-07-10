@@ -233,11 +233,6 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 			return false;
 		}
 
-		if (Vertices.Num() == 8 && Vertices[0].Angle > 4.7 && Vertices[0].Angle < 4.8 && FaceIndex == 7 && Vertices[7].Angle == HALF_PI)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Poop may happen"));
-		}
-
 		// \/ Detect if merge is possible \/ //
 		bool bSearchingForVertex1 = false;
 		bool bNeedsToSearchForVertex1 = true;

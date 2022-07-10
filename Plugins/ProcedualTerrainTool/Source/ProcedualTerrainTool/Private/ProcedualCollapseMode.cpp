@@ -16,7 +16,6 @@
 UProcedualCollapseMode::UProcedualCollapseMode()
 {
 	AActor* OwningActor = Cast<AActor>(GetOuter());
-	UE_LOG(LogTemp, Warning, TEXT("Owner = %s"), *GetOuter()->GetFName().ToString());
 	if (IsValid(OwningActor))
 	{
 		TerrainTransform = OwningActor->GetActorTransform();
@@ -28,11 +27,11 @@ UProcedualCollapseMode::UProcedualCollapseMode()
  *
  * @param SuperPositionIndex - Set to the indices of the super position to collapse next.
  * @param CurrentShape - The current shape of the terrain.
- * @param SuperPositions - The current superposition states of the terrain.
+ * @param Superpositions - The current superposition states of the terrain.
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool UProcedualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
+bool UProcedualCollapseMode::GetSuperpositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> Superpositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
 {
 	SuperPositionIndex = FIntVector();
 	return false;
@@ -131,16 +130,16 @@ UManualCollapseMode::UManualCollapseMode()
  *
  * @param SuperPositionIndex - Set to the indices of the super position to collapse next.
  * @param CurrentShape - The current shape of the terrain.
- * @param SuperPositions - The current superposition states of the terrain.
+ * @param Superpositions - The current superposition states of the terrain.
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
+bool UManualCollapseMode::GetSuperpositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> Superpositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
 {
 	ErrorLocation = FVector::ZeroVector;
 	TileIndex = FMath::Clamp(TileIndex, 0, SpawnableTiles.Num() - 1);
 
-	if (!SuperPositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty() && IsValid(CollapseLocationMarker))
+	if (!Superpositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty() && IsValid(CollapseLocationMarker))
 	{
 		//Get socket closest to center
 		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
@@ -159,9 +158,9 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
 
 		//Get possible collapses around selected socket
 		int ShapeIndex = TileIndex;
-		for (int FaceIndex = 0; FaceIndex < SuperPositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
+		for (int FaceIndex = 0; FaceIndex < Superpositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
 		{
-			if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
+			if (Superpositions[SocketIndex][ShapeIndex][FaceIndex])
 			{
 				if (!PossibleCollapses.Contains(ShapeIndex))
 				{
@@ -212,13 +211,13 @@ bool UManualCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionI
  *
  * @param SuperPositionIndex - Set to the indices of the super position to collapse next.
  * @param CurrentShape - The current shape of the terrain.
- * @param SuperPositions - The current superposition states of the terrain.
+ * @param Superpositions - The current superposition states of the terrain.
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
+bool UCircularCollapseMode::GetSuperpositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> Superpositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
 {
-	if (!SuperPositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty())
+	if (!Superpositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty())
 	{
 		//Get socket closest to center
 		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
@@ -236,11 +235,11 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 		}
 
 		//Get possible collapses around selected socket
-		for (int ShapeIndex = 0; ShapeIndex < SuperPositions[SocketIndex].Num(); ShapeIndex++)
+		for (int ShapeIndex = 0; ShapeIndex < Superpositions[SocketIndex].Num(); ShapeIndex++)
 		{
-			for (int FaceIndex = 0; FaceIndex < SuperPositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
+			for (int FaceIndex = 0; FaceIndex < Superpositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
 			{
-				if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
+				if (Superpositions[SocketIndex][ShapeIndex][FaceIndex])
 				{
 					if (!PossibleCollapses.Contains(ShapeIndex))
 					{
@@ -301,7 +300,7 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
 	}
 	//Fail for invalid shapes
 	SuperPositionIndex = FIntVector(0, RandomStream.RandHelper(SpawnableTiles.Num()), 0);
-	return CurrentShape.Vertices.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
+	return CurrentShape.Vertices.IsEmpty() && !SpawnableTiles.IsEmpty() && !Superpositions.IsEmpty() && !Superpositions[0].IsEmpty() && !Superpositions[0][0].IsEmpty();
 }
 
 /**
@@ -330,13 +329,13 @@ bool UCircularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositio
  *
  * @param SuperPositionIndex - Set to the indices of the super position to collapse next.
  * @param CurrentShape - The current shape of the terrain.
- * @param SuperPositions - The current superposition states of the terrain.
+ * @param Superpositions - The current superposition states of the terrain.
  * @param SpawnableTiles - The tiles that can be spawned.
  * @return Whether or not another collapse is needed.
  */
-bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> SuperPositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
+bool URectangularCollapseMode::GetSuperpositionsToCollapse(FIntVector& SuperPositionIndex, FTerrainShape CurrentShape, TArray<TArray<TArray<bool>>> Superpositions, TArray<FTerrainTileSpawnData> SpawnableTiles, FRandomStream& RandomStream)
 {
-	if (!SuperPositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty())
+	if (!Superpositions.IsEmpty() && !CurrentShape.Vertices.IsEmpty())
 	{
 		//Find left most point in extent.
 		TMap<int, TArray<int>> PossibleCollapses = TMap<int, TArray<int>>();
@@ -356,11 +355,11 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 		}
 
 		//Get Possible collapses
-		for (int ShapeIndex = 0; ShapeIndex < SuperPositions[SocketIndex].Num(); ShapeIndex++)
+		for (int ShapeIndex = 0; ShapeIndex < Superpositions[SocketIndex].Num(); ShapeIndex++)
 		{
-			for (int FaceIndex = 0; FaceIndex < SuperPositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
+			for (int FaceIndex = 0; FaceIndex < Superpositions[SocketIndex][ShapeIndex].Num(); FaceIndex++)
 			{
-				if (SuperPositions[SocketIndex][ShapeIndex][FaceIndex])
+				if (Superpositions[SocketIndex][ShapeIndex][FaceIndex])
 				{
 					if (!PossibleCollapses.Contains(ShapeIndex))
 					{
@@ -419,7 +418,7 @@ bool URectangularCollapseMode::GetSuperPositionsToCollapse(FIntVector& SuperPosi
 	}
 
 	SuperPositionIndex = FIntVector(0, RandomStream.RandHelper(SpawnableTiles.Num()), 0);
-	return CurrentShape.Vertices.IsEmpty() && !SpawnableTiles.IsEmpty() && !SuperPositions.IsEmpty() && !SuperPositions[0].IsEmpty() && !SuperPositions[0][0].IsEmpty();
+	return CurrentShape.Vertices.IsEmpty() && !SpawnableTiles.IsEmpty() && !Superpositions.IsEmpty() && !Superpositions[0].IsEmpty() && !Superpositions[0][0].IsEmpty();
 }
 
 /**
