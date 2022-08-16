@@ -22,13 +22,13 @@ enum class EConnectionResult : uint8
 /**
  * A socket storing data relevant for terrain piece connections.
  */
-USTRUCT(BlueprintType)
+USTRUCT()
 struct PROCEDUALTERRAINTOOL_API FTerrainVertex
 {
 	GENERATED_BODY()
 
 	//The type of edge after this vertex. Will only connect to vertices of the same type.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	FName Type;
 
 	//The location of the vertex relative to the terrain.
@@ -36,11 +36,11 @@ struct PROCEDUALTERRAINTOOL_API FTerrainVertex
 	FVector2D Location;
 
 	//The length of the edge after this vertex. Will only connect to vertices with the same length.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	float Length;
 
 	//The interior angle at the vertex.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	double Angle = 2 * PI;
 
 	/**
@@ -168,7 +168,7 @@ struct PROCEDUALTERRAINTOOL_API FTerrainShape
 	GENERATED_BODY()
 
 	//Stores all of the sockets in this shape.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	TArray<FTerrainVertex> Vertices = TArray<FTerrainVertex>();
 
 	//Constructs a terrain shape from the given terrain's geometry.

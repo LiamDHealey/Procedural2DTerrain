@@ -161,7 +161,7 @@ private:
 	/**
 	 * Spawns any new tiles created by the worker and shuts down worker if complete.
 	 */
-	UFUNCTION(Meta = (Category = "TerrainGenerator"))
+	UFUNCTION(Meta = (Category = "Terrain Generator"))
 	void RefreshTiles();
 
 	/**
@@ -176,7 +176,7 @@ private:
 	class FTerrainGenerationWorker* TerrainGenerationWorker;
 
 	//The current shape of the terrain.
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY()
 	FTerrainShape TerrainShape = FTerrainShape();
 
 	//The timer that periodically updates the tiles to match the worker.
