@@ -18,3 +18,13 @@ Inside the repo is an example project that has been set up corectly and is there
    - Manual - This will spawn an actor that you can move, and will place a single tile of a specified index from the spawnable tiles array as close to that actor as possible. This actor can be selected though the details of the genration mode. This is good if you want to pause generation and then add a speifc tile before resuming generation on one of the other modes.
 10. Now you can hit `Begin Generation`, and the terrain generator will try to fill an area with tiles. If the generation stops before if compleatly fills its area that means that the terrain has a location in it where no tile will fit. This can either be fixed by hiting reset and generating the terrain again or by changing your spawnable tile set. If you would like the terrain to keep generating until sucessful then check `Generate Until Successful`. If you would like the gernator to stop generating press `End Generation`. If you are unsatifyed with the terrain you can press `Reset`
 11. You may now either delete the terrain generator actor or leave it in in case you would like to regenerate the terrain.
+
+
+## Limitations
+This system has quite a few restrictions to its use that likly wont be fixed as this tool is no longer in devlopment.
+
+- Multiple terrain generators can not conect to eachother.
+- Concave tiles will certainly break things.
+- Tiles that are significanyl differnt in size (more than ~2x) and can be conceted to eachother will likely break the system. 
+- Can cause lag as the system only spawns actors and does not suport spawning of instanced static meshes instead.
+- While the system may work during run time it has not been tested.
