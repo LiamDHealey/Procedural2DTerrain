@@ -1,5 +1,7 @@
 # Procedual2DTerrain
 This is a tool designed to automate the process of making complex, non-uniform-tile-based terrain.
+![image](https://user-images.githubusercontent.com/56327428/212569693-f3a45217-ddfe-4d76-b110-25e1520be635.png)
+![image](https://user-images.githubusercontent.com/56327428/212569740-0257fd14-8ef3-431c-aa43-41bb93b09bec.png)
 
 ## How to Use
 Inside the repo is an example project that has been set up corectly and is there for you to experiment with should this tutorial be insufficent.
