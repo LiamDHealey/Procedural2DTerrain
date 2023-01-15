@@ -108,9 +108,9 @@ public:
 	ATerrainGenerator();
 
 	/**
-	 * Delete me.
+	 * Temporary function that can be used to debug the terrain generator.
 	 */
-	UFUNCTION(CallInEditor, BlueprintCallable, Meta = (Category = "Terrain Generator"))
+	UFUNCTION(/*CallInEditor, BlueprintCallable,*/ Meta = (Category = "Terrain Generator"))
 	void Test();
 
 	/**

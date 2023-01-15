@@ -24,7 +24,7 @@ ATerrainGenerator::ATerrainGenerator()
 }
 
 /**
- * Delete me.
+ * Temporary function that can be used to debug the terrain generator.
  */
 void ATerrainGenerator::Test()
 {
