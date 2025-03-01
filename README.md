@@ -1,4 +1,4 @@
-# Procedual2DTerrain
+# Procedural2DTerrain
 This is a tool designed to automate the process of making complex, non-uniform-tile-based terrain.
 ![image](https://user-images.githubusercontent.com/56327428/212569693-f3a45217-ddfe-4d76-b110-25e1520be635.png)
 ![image](https://user-images.githubusercontent.com/56327428/212569740-0257fd14-8ef3-431c-aa43-41bb93b09bec.png)
@@ -6,8 +6,8 @@ This is a tool designed to automate the process of making complex, non-uniform-t
 ## How to Use
 Inside the repo is an example project that has been set up correctly and is there for you to experiment with should this tutorial be insufficient.
 
-1. Add the plugin to your project by copying the `ProcedualTerrainTool` folder from this repo to the `Plugins` folder (create the folder if it doesn't exist) of your project. You will need to restart the editor if it was already open.
-2. In the editor right click on the `TerrainTileCreator` found in `Plugins/ProcedualTerrainTool Content` and click `Run Editor Utility Widget`. This will open up the tile data creation tool you will use to tell the generator what shape each of your tiles is.
+1. Add the plugin to your project by copying the `ProceduralTerrainTool` folder from this repo to the `Plugins` folder (create the folder if it doesn't exist) of your project. You will need to restart the editor if it was already open.
+2. In the editor right click on the `TerrainTileCreator` found in `Plugins/ProceduralTerrainTool Content` and click `Run Editor Utility Widget`. This will open up the tile data creation tool you will use to tell the generator what shape each of your tiles is.
 3. Click `New Tile` and enter the name of the tile data asset and the folder to create it in. Then click `Create`.
 4. Now select the class of actor you want to associate with this tile under tile data.
 5. Now using the viewport or the array of vertices under tile data, create the outline of your tile. You can left-click to drag vertices & edges, right-click to delete vertices, and double-click on edges to create new vertices. `***IMPORTANT NOTE:***` Edges will only connect to each other when generating if they have the exact same length and type. Also, make sure the angles between your edges are precise so that there are no gaps when generating.
